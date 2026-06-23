@@ -2537,7 +2537,7 @@ function openSignDialog() {
 
   document.getElementById('acName').textContent = '안내판';
   document.getElementById('acName').style.background = '#6BAE8C';
-  document.getElementById('acText').textContent = '영조빌라에 오신 것을 환영합니다. 🏠';
+  document.getElementById('acText').innerHTML = '영조빌라에 오신 것을 환영합니다. 🏠<br><br><span style="font-size:15px;color:var(--clr-sub);line-height:2;">1. 영조빌라와 함께하는 파티를 예약하실 경우, 이유진을 찾으세요.<br>2. 파티에서 즐기실 음악을 신청하실 경우, 최관철을 찾으세요.</span>';
   document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
   document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
 
