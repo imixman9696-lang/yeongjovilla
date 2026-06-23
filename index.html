@@ -2571,11 +2571,17 @@ function openSignDialog() {
     '영조빌라에 오신 것을 환영합니다. 🏠',
     '영조빌라에 오신 것을 환영합니다. 🏠<br><br><span style="font-size:15px;color:var(--clr-sub);line-height:2;">1. 영조빌라와 함께하는 파티를 예약하실 경우, 이유진을 찾으세요.<br>2. 파티에서 즐기실 음악을 신청하실 경우, 최관철을 찾으세요.</span>'
   );
-  document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
-  document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
+  document.getElementById('acClose').style.display = 'none';
+  document.getElementById('acCloseBtn').style.display = 'none';
 
   const opts = document.getElementById('acOptions');
   opts.innerHTML = '';
+  const BS = `padding:11px 24px;border:none;border-radius:var(--r);font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s;`;
+  const btnOk = document.createElement('button');
+  btnOk.textContent = '확인';
+  btnOk.style.cssText = BS + 'background:#6BAE8C;color:#fff;';
+  btnOk.onclick = () => closeDialog();
+  opts.append(btnOk);
   document.getElementById('acDialog').style.display = 'block';
   document.getElementById('npcHint').style.display = 'none';
   document.getElementById('touchInteractBtn').style.display = 'none';
