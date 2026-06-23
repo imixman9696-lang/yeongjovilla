@@ -1041,6 +1041,18 @@ mapLoader.load(
     // 동물 스폰 (맵 로드 후 유효한 지면 위에만)
     spawnAnimalsOnMap(map);
 
+    // 우드 사인 표지판 배치 (집 옆)
+    const signLoader = new GLTFLoader();
+    signLoader.load('/Wooden Sign.glb', (sg) => {
+      const sign = sg.scene;
+      sign.scale.setScalar(0.8);
+      sign.position.set(7, groundLevel, -1);
+      sign.rotation.y = -Math.PI / 6;
+      sign.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      _origSceneAdd(sign);
+    }, undefined, (e) => console.warn('표지판 로드 실패:', e));
+
+
     // 참가신청·음악신청 모두 캐릭터 NPC가 담당 — 정적 NPC 없음
     if (!npcsPlaced) { npcsPlaced = true; }
 
