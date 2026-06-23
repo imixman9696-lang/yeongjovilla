@@ -1624,6 +1624,7 @@ function animate() {
 
   // 전역 노출 (외부 스크립트에서 접근)
   window.THREE        = THREE;
+  window.GLTFLoader   = GLTFLoader;
   window._charRoot    = charRoot;
   window._scene       = scene;
   window._groundLevel = groundLevel;
@@ -1682,6 +1683,8 @@ function animate() {
   if (window._punkman) updatePunkman(dt);
   // ── 이유진 배회 AI ──
   if (window._yoojin) updateYoojin(dt);
+  // ── 원격 플레이어 고양이 애니메이션 ──
+  if (typeof updateRemoteCats === 'function') updateRemoteCats(dt);
 
   renderer.render(scene, camera);
 }
@@ -2293,57 +2296,61 @@ setInterval(() => {
   }
 }, 100);
 
-// ── 다른 플레이어 고양이 생성 ──
+// ── 다른 플레이어 고양이 생성 (실제 GLB) ──
 function spawnRemoteCat(id, name) {
   if (remoteCats[id]) return;
-  // 간단한 로우폴리 고양이 대체 (GLB 로딩 생략)
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(0.35, 7, 5),
-    new THREE.MeshToonMaterial({ color: 0xff8844 })
-  );
-  body.scale.set(1, 0.75, 1.2); body.position.y = 0.35; g.add(body);
+  remoteCats[id] = { group: null, mixer: null, idleAction: null, walkAction: null };
 
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.25, 7, 5),
-    new THREE.MeshToonMaterial({ color: 0xff8844 })
-  );
-  head.position.set(0, 0.68, 0.28); g.add(head);
+  const loader = new (window.GLTFLoader || window.THREE._GLTFLoader)();
+  if (!loader) return;
 
-  // 귀
-  [-1,1].forEach(s => {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08,0.14,4),
-      new THREE.MeshToonMaterial({ color: 0xff8844 }));
-    ear.position.set(s*0.14, 0.9, 0.22); ear.rotation.z = s*0.3; g.add(ear);
+  new window.GLTFLoader().load('/oiiaioooooiai_cat.glb', (gltf) => {
+    if (!remoteCats[id]) return; // 이미 퇴장한 경우
+    const model = gltf.scene;
+    model.scale.setScalar(0.33);
+    model.traverse(c => { if (c.isMesh) { c.castShadow = true; } });
+
+    // 이름표 (makeNameSprite 스타일)
+    const tag = makeNameSprite(name, '#555');
+    tag.position.set(0, 3.2, 0);
+    model.add(tag);
+
+    // 애니메이션
+    const mixer = new window.THREE.AnimationMixer(model);
+    const clips = gltf.animations;
+    const idleClip = clips.find(c => /idle/i.test(c.name)) || clips[0];
+    const walkClip = clips.find(c => /walk|run/i.test(c.name)) || clips[1] || clips[0];
+    const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
+    const walkAction = walkClip ? mixer.clipAction(walkClip) : null;
+    if (idleAction) { idleAction.play(); }
+
+    model.position.set(0, window._groundLevel || 0, 5);
+    if (window._scene) window._scene.add(model);
+
+    remoteCats[id] = { group: model, mixer, idleAction, walkAction, anim: 'idle' };
+    showToast(`🐱 ${name} 입장!`);
   });
-
-  // 이름표
-  const canvas = document.createElement('canvas');
-  canvas.width = 200; canvas.height = 60;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.roundRect(10,10,180,40,10); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
-  ctx.textAlign = 'center'; ctx.fillText(name, 100, 37);
-  const tag = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(canvas), transparent: true
-  }));
-  tag.scale.set(2.2, 0.55, 1); tag.position.y = 2.2; g.add(tag);
-
-  g.position.set(0, window._groundLevel || 0, 5);
-
-  // scene에 추가 (전역 노출된 scene 사용)
-  if (window._scene) window._scene.add(g);
-  remoteCats[id] = { group: g };
-  showToast(`🐱 ${name} 입장!`);
 }
 
 function moveRemoteCat(msg) {
   const r = remoteCats[msg.id];
-  if (!r) return;
-  const g = r.group;
-  g.position.set(msg.x, msg.y, msg.z);
-  g.rotation.y = msg.ry;
+  if (!r || !r.group) return;
+  r.group.position.set(msg.x, msg.y, msg.z);
+  r.group.rotation.y = msg.ry;
+
+  // 걷기/서기 애니메이션 전환
+  const newAnim = msg.anim || 'idle';
+  if (newAnim !== r.anim && r.idleAction && r.walkAction) {
+    const from = newAnim === 'walk' ? r.idleAction : r.walkAction;
+    const to   = newAnim === 'walk' ? r.walkAction : r.idleAction;
+    from.fadeOut(0.2); to.reset().fadeIn(0.2).play();
+    r.anim = newAnim;
+  }
+}
+
+// 원격 고양이 애니메이션 업데이트 (animate 루프에서 호출)
+function updateRemoteCats(dt) {
+  Object.values(remoteCats).forEach(r => { if (r?.mixer) r.mixer.update(dt); });
 }
 
 function removeRemoteCat(id) {
