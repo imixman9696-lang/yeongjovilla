@@ -217,6 +217,8 @@
   }
 }
 </script>
+<!-- isMobile 전역 선언 (모듈보다 먼저 실행) -->
+<script>window.isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);</script>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -1047,7 +1049,7 @@ mapLoader.load(
       const sign = sg.scene;
       sign.scale.setScalar(0.8);
       sign.position.set(7, groundLevel, -1);
-      sign.rotation.y = -Math.PI / 6;
+      sign.rotation.y = Math.PI / 4;
       sign.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
       _origSceneAdd(sign);
     }, undefined, (e) => console.warn('표지판 로드 실패:', e));
@@ -2063,6 +2065,27 @@ addEventListener('resize', () => {
 <!-- ══ 게임 로직 (WebSocket / NPC / 폼) ══ -->
 <script>
 const isMobile = window.isMobile;
+
+// ── 모바일 탭으로 상호작용 ──
+if (isMobile) {
+  document.addEventListener('touchend', e => {
+    if (window._inDialog) return;
+    // 조이스틱 영역 탭은 무시
+    const jZone = document.getElementById('joystickZone');
+    if (jZone) {
+      const r = jZone.getBoundingClientRect();
+      const t = e.changedTouches[0];
+      if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) return;
+    }
+    // 폼/대화창 위 탭은 무시
+    if (e.target.closest('#acDialog, #applyModal, #musicModal, #touchRunBtn')) return;
+
+    if (window._nearAnimal) { openAnimalDialog(window._nearAnimal); return; }
+    if (window._nearNPC?.label === '참가 신청') { openYoojinDialog(); return; }
+    if (window._nearNPC?.label === '음악 신청') { openPunkDialog(); return; }
+  }, { passive: true });
+}
+
 // ── 이름표 스프라이트 생성 ──
 function makeNameSprite(name, bgColor = '#555') {
   const canvas = document.createElement('canvas');
@@ -2381,6 +2404,8 @@ function checkProximity() {
 
   nearNPC    = closestNPC;
   nearAnimal = closestAnimal;
+  window._nearNPC    = closestNPC;
+  window._nearAnimal = closestAnimal;
   const hasTarget = closestNPC || closestAnimal;
 
   if (isMobile) {
