@@ -271,6 +271,7 @@ new RGBELoader().load(
 );
 
 const scene = new THREE.Scene();
+window._scene = scene; // 초기화 즉시 노출 (spawnRemoteCat이 WebSocket 이벤트에서 호출될 때 사용)
 scene.fog = new THREE.Fog(0xc8eeff, 35, 90);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 200);
