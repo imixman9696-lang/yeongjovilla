@@ -966,7 +966,7 @@ let vrmInstance = null;
 // ═══════════════════════════════════════
 const mapLoader = new GLTFLoader();
 mapLoader.load(
-  'http://localhost:3456/impact__billys_house__low_poly_map_baked.glb',
+  '/impact__billys_house__low_poly_map_baked.glb',
   (gltf) => {
     const map = gltf.scene;
 
@@ -1066,7 +1066,7 @@ mapLoader.load(
 // ── 고양이 GLB 로드 ──
 const catLoader = new GLTFLoader();
 catLoader.load(
-  'http://localhost:3456/oiiaioooooiai_cat.glb',
+  '/oiiaioooooiai_cat.glb',
   (gltf) => {
     useGLTF = true;
     hips.visible = false;
