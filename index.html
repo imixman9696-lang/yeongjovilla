@@ -197,14 +197,16 @@
 
 <!-- 맵 로딩 오버레이 -->
 <div id="mapLoader" style="
-  position:fixed; inset:0; background:rgba(0,0,0,0.82);
+  position:fixed; inset:0; background:#1a1a2e;
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
-  color:#fff; font-family:'Segoe UI',sans-serif; z-index:99;
+  color:#fff; font-family:var(--font); z-index:99;
 ">
-  <div style="font-size:22px; margin-bottom:18px;">🏠 Billy's House 맵 로딩 중...</div>
-  <div style="width:320px; height:10px; background:#333; border-radius:8px; overflow:hidden;">
-    <div id="mapBar" style="height:100%; width:0%; background:linear-gradient(90deg,#4af,#8df); border-radius:8px; transition:width 0.2s;"></div>
+  <div style="font-size:48px; margin-bottom:16px;">🏠</div>
+  <div style="font-size:24px; font-weight:700; margin-bottom:6px; color:#fff;">영조빌라</div>
+  <div style="font-size:14px; color:rgba(255,255,255,0.5); margin-bottom:32px;">불러오는 중...</div>
+  <div style="width:280px; height:6px; background:rgba(255,255,255,0.12); border-radius:99px; overflow:hidden;">
+    <div id="mapBar" style="height:100%; width:0%; background:linear-gradient(90deg,#E8855A,#f0a882); border-radius:99px; transition:width 0.25s ease;"></div>
   </div>
   <div id="mapPct" style="margin-top:10px; font-size:14px; opacity:0.7;">0%</div>
 </div>
