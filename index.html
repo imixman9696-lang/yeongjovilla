@@ -2096,6 +2096,35 @@ if (isMobile) {
   }, { passive: true });
 }
 
+// ── 타이핑 효과 ──
+let _typingTimer = null;
+function typeText(el, text, speed = 35, onDone) {
+  if (_typingTimer) clearInterval(_typingTimer);
+  el.textContent = '';
+  let i = 0;
+  _typingTimer = setInterval(() => {
+    el.textContent += text[i++];
+    if (i >= text.length) {
+      clearInterval(_typingTimer);
+      _typingTimer = null;
+      if (onDone) onDone();
+    }
+  }, speed);
+}
+function typeHTML(el, plain, html, speed = 35) {
+  if (_typingTimer) clearInterval(_typingTimer);
+  el.textContent = '';
+  let i = 0;
+  _typingTimer = setInterval(() => {
+    el.textContent += plain[i++];
+    if (i >= plain.length) {
+      clearInterval(_typingTimer);
+      _typingTimer = null;
+      el.innerHTML = html;
+    }
+  }, speed);
+}
+
 // ── 이름표 스프라이트 생성 ──
 function makeNameSprite(name, bgColor = '#555') {
   const canvas = document.createElement('canvas');
@@ -2455,7 +2484,7 @@ function openAnimalDialog(w) {
   window._inDialog = true;
 
   document.getElementById('acName').textContent = name;
-  document.getElementById('acText').textContent = sound;
+  typeText(document.getElementById('acText'), sound);
   document.getElementById('acOptions').innerHTML = '';
   document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
   document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
@@ -2473,7 +2502,7 @@ function openYoojinDialog() {
 
   document.getElementById('acName').textContent = '이유진';
   document.getElementById('acName').style.background = '#E8855A';
-  document.getElementById('acText').textContent = '어, 왔어? 방문 신청할 거야?';
+  typeText(document.getElementById('acText'), '어, 왔어? 방문 신청할 거야?');
   document.getElementById('acClose').style.display = 'none';
   document.getElementById('acCloseBtn').style.display = 'none';
 
@@ -2506,7 +2535,7 @@ function openPunkDialog() {
 
   document.getElementById('acName').textContent = '최관철';
   document.getElementById('acName').style.background = '#7B9FE0';
-  document.getElementById('acText').textContent = '뭐야, 용건이 뭔데?';
+  typeText(document.getElementById('acText'), '뭐야, 용건이 뭔데?');
   document.getElementById('acClose').style.display = 'none';
   document.getElementById('acCloseBtn').style.display = 'none';
 
@@ -2537,7 +2566,11 @@ function openSignDialog() {
 
   document.getElementById('acName').textContent = '안내판';
   document.getElementById('acName').style.background = '#6BAE8C';
-  document.getElementById('acText').innerHTML = '영조빌라에 오신 것을 환영합니다. 🏠<br><br><span style="font-size:15px;color:var(--clr-sub);line-height:2;">1. 영조빌라와 함께하는 파티를 예약하실 경우, 이유진을 찾으세요.<br>2. 파티에서 즐기실 음악을 신청하실 경우, 최관철을 찾으세요.</span>';
+  typeHTML(
+    document.getElementById('acText'),
+    '영조빌라에 오신 것을 환영합니다. 🏠',
+    '영조빌라에 오신 것을 환영합니다. 🏠<br><br><span style="font-size:15px;color:var(--clr-sub);line-height:2;">1. 영조빌라와 함께하는 파티를 예약하실 경우, 이유진을 찾으세요.<br>2. 파티에서 즐기실 음악을 신청하실 경우, 최관철을 찾으세요.</span>'
+  );
   document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
   document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
 
