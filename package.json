@@ -1,0 +1,15 @@
+{
+  "name": "yeongjovilla",
+  "version": "1.0.0",
+  "description": "영조빌라 - 3D 애니메 스타일 게임",
+  "main": "game-server.js",
+  "scripts": {
+    "start": "node game-server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "nodemailer": "^9.0.1",
+    "ws": "^8.16.0"
+  }
+}

@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>영조빌라</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <style>
+  :root {
+    --r: 16px;
+    --bg-dialog: #FFF7EE;
+    --shadow-dialog: 0 8px 40px rgba(180,120,60,0.18);
+    --font: 'Pretendard', 'Segoe UI', sans-serif;
+    --clr-text: #3a2a18;
+    --clr-sub: #9a8470;
+    --btn-apply: #E8855A;   /* 따뜻한 오렌지 */
+    --btn-music: #7B9FE0;   /* 따뜻한 파스텔 블루 */
+    --btn-cancel: rgba(180,140,100,0.15);
+  }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; }
+    canvas { display: block; }
+    #ui {
+      position: fixed; bottom: 22px; left: 50%;
+      transform: translateX(-50%);
+      color: #fff; font-family: var(--font); font-size: 13px;
+      background: rgba(0,0,0,0.42); padding: 7px 18px;
+      border-radius: var(--r); pointer-events: none;
+    }
+
+    /* ── 모바일 전용 ── */
+    #joystickZone {
+      display: none;
+      position: fixed; bottom: 36px; left: 36px;
+      width: 120px; height: 120px; z-index: 150;
+      touch-action: none;
+    }
+    #joystickBase {
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.35);
+      position: absolute;
+    }
+    #joystickKnob {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,0.55);
+      border: 2px solid rgba(255,255,255,0.7);
+      position: absolute;
+      top: 36px; left: 36px;
+      transition: none;
+      backdrop-filter: blur(4px);
+    }
+    #touchInteractBtn {
+      display: none;
+      position: fixed; bottom: 36px; right: 36px;
+      width: 68px; height: 68px; border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+      border: 2px solid rgba(255,255,255,0.5);
+      color: #fff; font-size: 13px; font-family: var(--font); font-weight: 700;
+      cursor: pointer; z-index: 150;
+      align-items: center; justify-content: center;
+      text-align: center; line-height: 1.2;
+      backdrop-filter: blur(4px);
+      touch-action: manipulation;
+    }
+    #touchRunBtn {
+      display: none;
+      position: fixed; bottom: 36px; right: 120px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.4);
+      color: #fff; font-size: 12px; font-family: var(--font); font-weight: 700;
+      cursor: pointer; z-index: 150;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+      touch-action: manipulation;
+    }
+
+    @media (max-width: 600px) {
+      #ui { display: none; }
+      #joystickZone, #touchInteractBtn, #touchRunBtn { display: flex; }
+      #joystickZone { display: block; }
+      #acDialog {
+        width: 96vw !important;
+        bottom: 170px !important;
+        padding: 16px 18px 16px !important;
+      }
+      #acText { font-size: 15px !important; }
+      #acOptions { gap: 8px !important; }
+      #acOptions button { font-size: 13px !important; padding: 10px 14px !important; }
+      #applyModal > div, #musicModal > div {
+        padding: 20px 18px !important;
+        min-width: unset !important;
+      }
+      #playerCount { top: 12px; right: 12px; }
+      #musicBtn { bottom: 170px; right: 16px; }
+      #npcHint { bottom: 180px; }
+    }
+  </style>
+</head>
+<body>
+<div id="ui">WASD: 이동 &nbsp;|&nbsp; Shift: 달리기 &nbsp;|&nbsp; 클릭+마우스: 카메라</div>
+
+<!-- 모바일 가상 조이스틱 -->
+<div id="joystickZone">
+  <div id="joystickBase"></div>
+  <div id="joystickKnob"></div>
+</div>
+<!-- 모바일 달리기 버튼 -->
+<button id="touchRunBtn">달리기</button>
+<!-- 모바일 상호작용 버튼 -->
+<button id="touchInteractBtn" style="display:none;">말<br>걸기</button>
+
+<!-- NPC 상호작용 힌트 -->
+<div id="npcHint" style="display:none; position:fixed; bottom:90px; left:50%;
+  transform:translateX(-50%); background:rgba(0,0,0,0.72); color:#fff;
+  font-family:'Segoe UI',sans-serif; font-size:14px; padding:8px 20px;
+  border-radius:24px; pointer-events:none; z-index:50;">
+  <b>E</b> — 말 걸기
+</div>
+
+<!-- 동물의숲 스타일 대화창 -->
+<div id="acDialog" style="display:none; position:fixed; bottom:28px; left:50%;
+  transform:translateX(-50%); width:min(820px, 92vw);
+  background:var(--bg-dialog); border-radius:var(--r);
+  box-shadow:var(--shadow-dialog);
+  padding:22px 28px 22px; font-family:var(--font); z-index:300; pointer-events:auto;">
+  <div id="acName" style="display:inline-block; color:#fff;
+    font-size:13px; font-weight:700; padding:4px 14px; border-radius:var(--r);
+    margin-bottom:12px; letter-spacing:0.3px;"></div>
+  <div id="acText" style="font-size:20px; color:var(--clr-text); line-height:1.65;
+    min-height:28px; margin-bottom:16px; font-weight:500;"></div>
+  <div id="acOptions" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"></div>
+  <div id="acClose" style="display:none; font-size:12px; color:var(--clr-sub);
+    margin-top:10px; text-align:right;">E / Space — 닫기</div>
+  <!-- 모바일 닫기 버튼 -->
+  <button id="acCloseBtn" onclick="closeDialog()" style="display:none;margin-top:10px;width:100%;
+    padding:10px;background:var(--btn-cancel);color:var(--clr-text);border:none;
+    border-radius:10px;font-size:14px;font-family:var(--font);cursor:pointer;">닫기</button>
+</div>
+
+<input id="playerName" type="hidden" value="">
+
+<!-- 참가 신청 폼 -->
+<div id="applyModal" style="display:none;position:fixed;inset:0;background:rgba(58,42,24,0.45);align-items:center;justify-content:center;z-index:200;">
+  <div style="background:var(--bg-dialog);border-radius:var(--r);padding:28px 32px;font-family:var(--font);min-width:340px;max-width:420px;width:90%;box-shadow:var(--shadow-dialog);">
+    <div style="font-size:13px;color:var(--clr-sub);font-weight:600;letter-spacing:0.05em;margin-bottom:6px;">이유진</div>
+    <div style="font-size:16px;font-weight:700;color:var(--clr-text);margin-bottom:20px;">🏠 방문 참가 신청</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input id="applyName" type="text" placeholder="방문자 명 *" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <input id="applyCount" type="number" placeholder="인원 *" min="1" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <input id="applyDate" type="date" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <input id="applyTime" type="time" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <textarea id="applyMsg" placeholder="메시지 (선택)" rows="3" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;resize:none;outline:none;"></textarea>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+      <button onclick="submitApply()" style="width:100%;padding:12px;background:var(--btn-apply);color:#fff;border:none;border-radius:10px;font-size:14px;font-family:var(--font);font-weight:700;cursor:pointer;">신청하기</button>
+      <button onclick="closeModals()" style="width:100%;padding:10px;background:var(--btn-cancel);color:var(--clr-text);border:none;border-radius:10px;font-size:14px;font-family:var(--font);cursor:pointer;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 음악 신청 폼 -->
+<div id="musicModal" style="display:none;position:fixed;inset:0;background:rgba(58,42,24,0.45);align-items:center;justify-content:center;z-index:200;">
+  <div style="background:var(--bg-dialog);border-radius:var(--r);padding:28px 32px;font-family:var(--font);min-width:340px;max-width:420px;width:90%;box-shadow:var(--shadow-dialog);">
+    <div style="font-size:13px;color:var(--clr-sub);font-weight:600;letter-spacing:0.05em;margin-bottom:6px;">최관철</div>
+    <div style="font-size:16px;font-weight:700;color:var(--clr-text);margin-bottom:20px;">🎵 음악 신청</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input id="musicName" type="text" placeholder="이름 *" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <input id="musicSong" type="text" placeholder="곡명 *" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <input id="musicArtist" type="text" placeholder="아티스트 (선택)" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;outline:none;">
+      <textarea id="musicMsg" placeholder="한 마디 (선택)" rows="2" style="width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--clr-text);border:1.5px solid rgba(180,140,100,0.3);border-radius:10px;box-sizing:border-box;background:#fff8f2;resize:none;outline:none;"></textarea>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+      <button onclick="submitMusic()" style="width:100%;padding:12px;background:var(--btn-music);color:#fff;border:none;border-radius:10px;font-size:14px;font-family:var(--font);font-weight:700;cursor:pointer;">신청하기</button>
+      <button onclick="closeModals()" style="width:100%;padding:10px;background:var(--btn-cancel);color:var(--clr-text);border:none;border-radius:10px;font-size:14px;font-family:var(--font);cursor:pointer;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 알림 토스트 -->
+<div id="toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.8);color:#fff;padding:10px 22px;border-radius:24px;
+  font-family:'Segoe UI',sans-serif;font-size:14px;z-index:300;pointer-events:none;"></div>
+
+<!-- 플레이어 수 -->
+<div id="playerCount" style="position:fixed;top:16px;right:16px;background:rgba(0,0,0,0.5);
+  color:#fff;font-family:'Segoe UI',sans-serif;font-size:13px;padding:6px 14px;
+  border-radius:20px;">🐱 1명</div>
+<div id="yInfo" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  color:#fff;font-family:monospace;font-size:13px;background:rgba(0,0,0,0.5);
+  padding:5px 14px;border-radius:12px;pointer-events:none;display:none;">
+  Y: <span id="yVal">0</span> &nbsp;([ 내리기 / ] 올리기)
+</div>
+
+<!-- 맵 로딩 오버레이 -->
+<div id="mapLoader" style="
+  position:fixed; inset:0; background:rgba(0,0,0,0.82);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  color:#fff; font-family:'Segoe UI',sans-serif; z-index:99;
+">
+  <div style="font-size:22px; margin-bottom:18px;">🏠 Billy's House 맵 로딩 중...</div>
+  <div style="width:320px; height:10px; background:#333; border-radius:8px; overflow:hidden;">
+    <div id="mapBar" style="height:100%; width:0%; background:linear-gradient(90deg,#4af,#8df); border-radius:8px; transition:width 0.2s;"></div>
+  </div>
+  <div id="mapPct" style="margin-top:10px; font-size:14px; opacity:0.7;">0%</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { VRMLoaderPlugin, VRMUtils } from 'https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.min.js';
+
+window.addEventListener('DOMContentLoaded', () => {
+
+// ═══════════════════════════════════════
+// RENDERER / SCENE / CAMERA
+// ═══════════════════════════════════════
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace  = THREE.SRGBColorSpace;
+renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+// ── HDR 환경맵 (숲 분위기) ──
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+new RGBELoader().load(
+  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/forest_slope_1k.hdr',
+  (hdr) => {
+    const envMap = pmrem.fromEquirectangular(hdr).texture;
+    scene.environment = envMap;   // PBR 재질에 환경 반사 적용
+    // scene.background = envMap; // 배경도 HDR로 하고 싶으면 이 줄 활성화
+    hdr.dispose();
+    pmrem.dispose();
+    console.log('✅ HDR 환경맵 로드 완료');
+  },
+  undefined,
+  () => {
+    // HDR 실패 시 기본 환경으로 폴백
+    console.log('HDR 로드 실패 → 기본 환경 사용');
+    const fallback = pmrem.fromScene(new THREE.RoomEnvironment()).texture;
+    scene.environment = fallback;
+    pmrem.dispose();
+  }
+);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xc8eeff, 35, 90);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 200);
+
+// ═══════════════════════════════════════
+// SKY GRADIENT (anime sky)
+// ═══════════════════════════════════════
+const skyGeo = new THREE.SphereGeometry(140, 16, 8);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: {
+    topCol: { value: new THREE.Color(0x4ab8e8) },
+    botCol: { value: new THREE.Color(0xa8e0f8) }
+  },
+  vertexShader: `
+    varying float vY;
+    void main() { vY = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }
+  `,
+  fragmentShader: `
+    uniform vec3 topCol, botCol;
+    varying float vY;
+    void main() { gl_FragColor = vec4(mix(botCol, topCol, clamp(vY,0.,1.)), 1.); }
+  `
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// ═══════════════════════════════════════
+// LIGHTING  (anime-style: strong top, soft fill)
+// ═══════════════════════════════════════
+scene.add(new THREE.AmbientLight(0xfff5d6, 0.65));
+
+const sun = new THREE.DirectionalLight(0xfff8d0, 1.5);
+sun.position.set(12, 22, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 100;
+sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
+sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
+scene.add(sun);
+
+const rimLight = new THREE.DirectionalLight(0x88ccff, 0.35);
+rimLight.position.set(-8, 4, -10);
+scene.add(rimLight);
+
+// ═══════════════════════════════════════
+// TOON MATERIAL HELPERS
+// ═══════════════════════════════════════
+
+// 2-step hard toon (true anime cel shading)
+function makeGrad2() {
+  const cv = document.createElement('canvas');
+  cv.width = 2; cv.height = 1;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#505050'; ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(1, 0, 1, 1);
+  const t = new THREE.CanvasTexture(cv);
+  t.minFilter = t.magFilter = THREE.NearestFilter;
+  return t;
+}
+// 3-step soft toon
+function makeGrad3() {
+  const cv = document.createElement('canvas');
+  cv.width = 3; cv.height = 1;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#444'; ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = '#aaa'; ctx.fillRect(1, 0, 1, 1);
+  ctx.fillStyle = '#fff'; ctx.fillRect(2, 0, 1, 1);
+  const t = new THREE.CanvasTexture(cv);
+  t.minFilter = t.magFilter = THREE.NearestFilter;
+  return t;
+}
+const GRAD2 = makeGrad2();
+const GRAD3 = makeGrad3();
+
+function toon(color, grad = GRAD2, extra = {}) {
+  return new THREE.MeshToonMaterial({ color, gradientMap: grad, ...extra });
+}
+
+// Back-face outline (anime style)
+function outline(mesh, thickness = 0.06, color = 0x111111) {
+  const mat = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
+  const ol = new THREE.Mesh(mesh.geometry, mat);
+  ol.scale.setScalar(1 + thickness);
+  mesh.add(ol);
+  return mesh;
+}
+
+function tm(geo, color, t = GRAD2, thick = 0.055) {
+  const m = new THREE.Mesh(geo, toon(color, t));
+  m.castShadow = true; m.receiveShadow = true;
+  return outline(m, thick);
+}
+
+// ═══════════════════════════════════════
+// 프로시저럴 환경 그룹 (서울맵 로드 후 숨김)
+// ═══════════════════════════════════════
+const proceduralEnv = new THREE.Group();
+scene.add(proceduralEnv);
+
+// ─── 원래 scene.add() 대신 proceduralEnv.add() 를 쓰도록 임시 패치 ───
+const _origSceneAdd = scene.add.bind(scene);
+scene.add = (...args) => { proceduralEnv.add(...args); return proceduralEnv; };
+
+// GROUND
+// ═══════════════════════════════════════
+// Grass base
+const grass = new THREE.Mesh(
+  new THREE.PlaneGeometry(300, 300),
+  toon(0x6ab53e, GRAD3)
+);
+grass.rotation.x = -Math.PI / 2;
+grass.receiveShadow = true;
+scene.add(grass);
+
+// Dirt path patches
+function addPatch(color, w, d, x, z) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshToonMaterial({ color, gradientMap: GRAD3 }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.005, z);
+  m.receiveShadow = true;
+  scene.add(m);
+}
+
+// ═══════════════════════════════════════
+// ROAD SYSTEM
+// ═══════════════════════════════════════
+function addRoad(len, w, x, z, ry = 0) {
+  // Asphalt
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(w, len), toon(0x5a5a6a, GRAD3));
+  road.rotation.x = -Math.PI / 2; road.rotation.z = ry;
+  road.position.set(x, 0.01, z); road.receiveShadow = true;
+  scene.add(road);
+
+  // Sidewalk strips
+  const swMat = toon(0xd4c9a8, GRAD3);
+  [-1, 1].forEach(s => {
+    const sw = new THREE.Mesh(new THREE.PlaneGeometry(1.6, len), swMat);
+    sw.rotation.x = -Math.PI / 2; sw.rotation.z = ry;
+    const off = s * (w / 2 + 0.8);
+    sw.position.set(x + Math.cos(ry) * off, 0.012, z - Math.sin(ry) * off);
+    sw.receiveShadow = true; scene.add(sw);
+  });
+
+  // Center line dashes
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (let i = -len / 2 + 2.5; i < len / 2; i += 4.5) {
+    const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 2), dashMat);
+    dash.rotation.x = -Math.PI / 2; dash.rotation.z = ry;
+    dash.position.set(x + Math.sin(ry) * i, 0.02, z + Math.cos(ry) * i);
+    scene.add(dash);
+  }
+}
+addRoad(100, 6.5, 0, 0);
+addRoad(70, 6.5, 0, -14, Math.PI / 2);
+addPatch(0xc0b898, 6.5, 6.5, 0, -14); // intersection
+
+// ═══════════════════════════════════════
+// JAPANESE BUILDINGS
+// ═══════════════════════════════════════
+function mkBuilding(cfg) {
+  const { w = 4, h = 4.5, d = 4, wall = 0xf2e8d5, roof = 0x3a3228, trim = 0x8b7355, x = 0, z = 0, ry = 0 } = cfg;
+  const g = new THREE.Group();
+
+  // Wall body
+  const body = tm(new THREE.BoxGeometry(w, h, d), wall, GRAD3, 0.04);
+  body.position.y = h / 2;
+  g.add(body);
+
+  // Window (shoji style - white grid)
+  const winMat = new THREE.MeshToonMaterial({ color: 0xd8eeff, gradientMap: GRAD3, transparent: true, opacity: 0.9 });
+  function addWindow(wx, wy, wz, ww, wh) {
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), winMat);
+    wm.position.set(wx, wy, wz);
+    g.add(wm);
+    // grid lines
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xaaaacc });
+    [0].forEach(() => {
+      const h1 = new THREE.Mesh(new THREE.PlaneGeometry(ww, 0.04), lineMat);
+      h1.position.set(wx, wy, wz + 0.01); g.add(h1);
+      const v1 = new THREE.Mesh(new THREE.PlaneGeometry(0.04, wh), lineMat);
+      v1.position.set(wx, wy, wz + 0.01); g.add(v1);
+    });
+  }
+  const floors = Math.max(1, Math.floor(h / 2.4));
+  const cols = Math.max(1, Math.floor(w / 1.8));
+  for (let fl = 0; fl < floors; fl++) {
+    for (let c = 0; c < cols; c++) {
+      addWindow(-w / 2 + 1 + c * (w / cols), 0.9 + fl * 2.3, d / 2 + 0.01, 0.7, 0.9);
+    }
+  }
+
+  // Trim band between floors
+  if (floors > 1) {
+    const band = tm(new THREE.BoxGeometry(w + 0.12, 0.18, d + 0.12), trim, GRAD3, 0.02);
+    band.position.y = 2.2; g.add(band);
+  }
+
+  // Hip roof (yosemune style)
+  const rh = h * 0.38;
+  const roofGrp = new THREE.Group();
+  roofGrp.position.y = h;
+
+  // Main sloped panels (4 sides)
+  const roofMat = toon(roof, GRAD2);
+  function roofPanel(pw, ph, px, pz, rx, rry) {
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), roofMat);
+    panel.castShadow = true;
+    panel.position.set(px, ph / 2 * Math.sin(rx), pz);
+    panel.rotation.x = rx; panel.rotation.y = rry;
+    roofGrp.add(panel);
+  }
+  const slope = 0.52;
+  roofPanel(w, Math.hypot(d / 2, rh), 0, d / 4, -slope, 0);
+  roofPanel(w, Math.hypot(d / 2, rh), 0, -d / 4, slope, 0);
+  roofPanel(d, Math.hypot(w / 2, rh), w / 4, 0, -slope, Math.PI / 2);
+  roofPanel(d, Math.hypot(w / 2, rh), -w / 4, 0, slope, Math.PI / 2);
+
+  // Roof ridge
+  const ridge = tm(new THREE.BoxGeometry(w * 0.55, 0.18, 0.22), 0x2a2018, GRAD2, 0.03);
+  ridge.position.y = rh * 0.78; roofGrp.add(ridge);
+
+  // Roof eave (nokiba)
+  const eaveMat = toon(0x2a2018, GRAD2);
+  const eave = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.12, d + 0.7), eaveMat);
+  eave.position.y = 0.06; eave.castShadow = true;
+  roofGrp.add(eave);
+
+  g.add(roofGrp);
+
+  // Foundation step
+  const found = tm(new THREE.BoxGeometry(w + 0.3, 0.25, d + 0.3), 0xc0b090, GRAD3, 0.03);
+  found.position.y = 0.125; g.add(found);
+
+  // Door
+  const door = tm(new THREE.BoxGeometry(0.8, 1.4, 0.1), 0x7a5c30, GRAD3, 0.03);
+  door.position.set(0, 0.7, d / 2 + 0.05); g.add(door);
+
+  g.position.set(x, 0, z);
+  g.rotation.y = ry;
+  scene.add(g);
+  return g;
+}
+
+// Convenience shop (convenience store style)
+function mkConbini(x, z, ry = 0) {
+  const g = new THREE.Group();
+  const body = tm(new THREE.BoxGeometry(5, 3.2, 4), 0xf0ede0, GRAD3, 0.04);
+  body.position.y = 1.6; g.add(body);
+  // Sign board
+  const sign = tm(new THREE.BoxGeometry(5, 0.7, 0.1), 0x2255aa, GRAD2, 0.03);
+  sign.position.set(0, 3.55, 2.05); g.add(sign);
+  // flat roof
+  const roof = tm(new THREE.BoxGeometry(5.3, 0.2, 4.3), 0x888888, GRAD3, 0.03);
+  roof.position.y = 3.2; g.add(roof);
+  // large windows
+  const wmat = new THREE.MeshToonMaterial({ color: 0xbbddff, gradientMap: GRAD3, transparent: true, opacity: 0.85 });
+  [-1.2, 0.4].forEach(wx => {
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.8), wmat);
+    wm.position.set(wx, 1.5, 2.01); g.add(wm);
+  });
+  g.position.set(x, 0, z); g.rotation.y = ry;
+  scene.add(g);
+}
+
+// Wall fence
+function mkFence(len, x, z, ry = 0) {
+  const g = new THREE.Group();
+  const postMat = toon(0x9a8060, GRAD3);
+  const boardMat = toon(0xb89a6a, GRAD3);
+  for (let i = 0; i <= len; i += 1.2) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 0.1), postMat);
+    post.position.set(i - len / 2, 0.6, 0); post.castShadow = true; g.add(post);
+  }
+  [-0.15, 0.55, 1.0].forEach(hy => {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.06), boardMat);
+    board.position.y = hy + 0.2; g.add(board);
+  });
+  g.position.set(x, 0, z); g.rotation.y = ry;
+  scene.add(g);
+}
+
+// Place buildings
+mkBuilding({ w: 4.5, h: 5.5, d: 4, wall: 0xf5ead0, roof: 0x3a2e1e, x: -7,  z: 5 });
+mkBuilding({ w: 3.5, h: 4,   d: 3, wall: 0xe8dfc8, roof: 0x4a3828, x: -6.5,z: 13 });
+mkBuilding({ w: 5,   h: 6.5, d: 4, wall: 0xf0e0c0, roof: 0x2e2418, x: -8,  z: -4 });
+mkBuilding({ w: 3.5, h: 4.5, d: 3.5, wall: 0xfaf0d8, roof: 0x3e3020, x: -6.5,z:-14 });
+mkBuilding({ w: 4,   h: 5,   d: 4, wall: 0xf2e4c0, roof: 0x3a2c1c, x: -7.5,z:-22 });
+mkBuilding({ w: 4,   h: 5,   d: 4, wall: 0xeee0c0, roof: 0x2a2010, x: 7,   z: 5 });
+mkBuilding({ w: 3.5, h: 4.5, d: 3, wall: 0xf8ead0, roof: 0x403020, x: 6.5, z: 13 });
+mkBuilding({ w: 4.5, h: 4,   d: 4, wall: 0xf0deb8, roof: 0x382818, x: 7.5, z: -4 });
+mkBuilding({ w: 3,   h: 5.5, d: 3, wall: 0xfaf2d8, roof: 0x2e2010, x: 6.5, z:-14 });
+mkBuilding({ w: 4,   h: 6,   d: 4, wall: 0xf0e4c8, roof: 0x38281a, x: -15,z: -14 });
+mkBuilding({ w: 3.5, h: 4,   d: 3.5, wall: 0xe8dac0, roof: 0x423220, x: -23,z: -14 });
+mkBuilding({ w: 5,   h: 5,   d: 4, wall: 0xf4ead0, roof: 0x2c2018, x: 15, z: -14 });
+mkConbini(-7.5, -22.5);
+mkFence(8, -4, 10, 0);
+mkFence(6, 4.2, 9, 0);
+
+// ═══════════════════════════════════════
+// ANIME-STYLE TREES
+// ═══════════════════════════════════════
+function mkTree(x, z, sc = 1, variant = 0) {
+  const g = new THREE.Group();
+
+  // Trunk (slightly tapered)
+  const trunk = tm(
+    new THREE.CylinderGeometry(0.1 * sc, 0.16 * sc, 1.6 * sc, 7),
+    0x7a5830, GRAD3, 0.04
+  );
+  trunk.position.y = 0.8 * sc;
+  g.add(trunk);
+
+  // Foliage — layered sphere clusters for anime look
+  const foliageColors = variant === 0
+    ? [0x3cb843, 0x4ed04e, 0x5ae05a] // summer green
+    : [0x2a9a2a, 0x3ab03a, 0x4ac84a]; // darker green
+
+  // Base large sphere
+  const f0 = tm(new THREE.SphereGeometry(1.1 * sc, 8, 6), foliageColors[0], GRAD2, 0.05);
+  f0.scale.y = 0.85; f0.position.y = 2.0 * sc; g.add(f0);
+
+  // Mid sphere (offset forward-right)
+  const f1 = tm(new THREE.SphereGeometry(0.85 * sc, 8, 6), foliageColors[1], GRAD2, 0.04);
+  f1.scale.y = 0.9;
+  f1.position.set(0.3 * sc, 2.55 * sc, 0.2 * sc); g.add(f1);
+
+  // Top tuft
+  const f2 = tm(new THREE.SphereGeometry(0.65 * sc, 7, 5), foliageColors[2], GRAD2, 0.04);
+  f2.scale.y = 0.8;
+  f2.position.set(-0.15 * sc, 3.0 * sc, -0.1 * sc); g.add(f2);
+
+  // Small side puff
+  const f3 = tm(new THREE.SphereGeometry(0.5 * sc, 7, 5), foliageColors[0], GRAD2, 0.035);
+  f3.scale.y = 0.85;
+  f3.position.set(-0.5 * sc, 2.2 * sc, 0.3 * sc); g.add(f3);
+
+  g.position.set(x, 0, z);
+  scene.add(g);
+  return g;
+}
+
+// Place many trees
+const treePts = [
+  [-5,2,1.0,0],[-5,9,0.85,1],[-5,18,1.1,0],[-5,-5,0.9,1],[-5,-16,1.0,0],
+  [5,3,0.95,1],[5,11,1.05,0],[5,-2,0.9,0],[5,-12,1.0,1],[5,-20,0.85,0],
+  [-17,-5,1.1,0],[-23,-4,0.9,1],[17,-5,1.0,0],[23,-4,0.85,1],
+  [-11,22,1.0,0],[11,22,0.9,1],[-11,-28,1.1,1],[11,-28,0.95,0],
+  [-3,22,0.8,0],[3,22,0.85,1],
+];
+treePts.forEach(([x,z,sc,v]) => mkTree(x, z, sc, v));
+
+// ═══════════════════════════════════════
+// ELECTRIC POLES (Japanese style)
+// ═══════════════════════════════════════
+function mkPole(x, z) {
+  const g = new THREE.Group();
+  const pole = tm(new THREE.CylinderGeometry(0.045, 0.065, 6, 6), 0x6a5a48, GRAD3, 0.03);
+  pole.position.y = 3; g.add(pole);
+  // crossarm
+  const arm = tm(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 5), 0x6a5a48, GRAD3, 0.03);
+  arm.rotation.z = Math.PI / 2; arm.position.y = 5.4; g.add(arm);
+  // insulators
+  [-0.8, 0, 0.8].forEach(ox => {
+    const ins = tm(new THREE.CylinderGeometry(0.05, 0.05, 0.15, 5), 0xffffff, GRAD3, 0.02);
+    ins.position.set(ox, 5.1, 0); g.add(ins);
+  });
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+[[-4,2],[-4,-8],[-4,-18],[4,-3],[4,-13]].forEach(([x,z]) => mkPole(x,z));
+
+// ═══════════════════════════════════════
+// ROCKS / PROPS
+// ═══════════════════════════════════════
+function mkRock(x, z, sc = 1) {
+  const cols = [0xa0a090, 0x909080, 0xb0b0a0];
+  const g = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const r = (0.25 + Math.random() * 0.25) * sc;
+    const rock = tm(new THREE.SphereGeometry(r, 5, 4), cols[i % cols.length], GRAD3, 0.04);
+    rock.scale.set(1 + Math.random() * 0.4, 0.55 + Math.random() * 0.35, 1 + Math.random() * 0.4);
+    rock.position.set((Math.random() - 0.5) * 0.5, r * 0.4, (Math.random() - 0.5) * 0.5);
+    g.add(rock);
+  }
+  g.position.set(x, 0, z); scene.add(g);
+}
+[[-5.5,18],[5.5,14],[-9,-21],[7.5,-26],[21,-9]].forEach(([x,z]) => mkRock(x,z,0.8+Math.random()*0.5));
+
+// ═══════════════════════════════════════
+// VENDING MACHINES (Japanese prop)
+// ═══════════════════════════════════════
+function mkVending(x, z, ry = 0) {
+  const g = new THREE.Group();
+  const body = tm(new THREE.BoxGeometry(0.7, 1.8, 0.45), 0xdd3333, GRAD2, 0.05);
+  body.position.y = 0.9; g.add(body);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1.2),
+    new THREE.MeshToonMaterial({ color: 0xff8888, gradientMap: GRAD3, transparent: true, opacity: 0.7 }));
+  front.position.set(0, 0.9, 0.23); g.add(front);
+  g.position.set(x, 0, z); g.rotation.y = ry;
+  scene.add(g);
+}
+mkVending(-5.5, 5, 0); mkVending(-5.5, 13.8, 0);
+
+// ═══════════════════════════════════════
+// CHARACTER RIG (Anime proportions)
+// ═══════════════════════════════════════
+const charRoot = new THREE.Group();
+// scene.add 원복 (이후 charRoot, VRM, 파티클 등은 실제 scene에)
+scene.add = _origSceneAdd;
+scene.add(proceduralEnv);
+
+charRoot.position.set(0, 0, 3);
+scene.add(charRoot);
+
+const C = {
+  skin: 0xffc9a0, hair: 0x1a0f00, shirt: 0x2d88cc,
+  skirt: 0x1a1a44, sock: 0xffffff, shoe: 0x1a1020,
+  bag: 0xee9900, scarf: 0xee4444,
+};
+
+// Anime head proportion: head is ~1/4 of total height (bigger than real)
+const hips = new THREE.Group(); hips.position.y = 0.82;
+hips.visible = false; // VRM 로드 전까지 숨김
+charRoot.add(hips);
+
+// ── LEGS ──
+function mkLeg(side) {
+  const hs = new THREE.Group(); hs.position.set(side * 0.13, 0, 0);
+  // thigh
+  const thighGeo = new THREE.CylinderGeometry(0.1, 0.085, 0.44, 8);
+  thighGeo.translate(0, -0.22, 0);
+  const thigh = outline(new THREE.Mesh(thighGeo, toon(C.skirt, GRAD2)), 0.05);
+  thigh.castShadow = true; hs.add(thigh);
+  // knee
+  const kn = new THREE.Group(); kn.position.y = -0.44;
+  // shin
+  const shinGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.42, 8);
+  shinGeo.translate(0, -0.21, 0);
+  const shin = outline(new THREE.Mesh(shinGeo, toon(C.sock, GRAD3)), 0.05);
+  shin.castShadow = true; kn.add(shin);
+  // ankle
+  const an = new THREE.Group(); an.position.y = -0.42;
+  const shoeGeo = new THREE.BoxGeometry(0.14, 0.08, 0.22);
+  shoeGeo.translate(0, -0.04, 0.03);
+  const shoe = outline(new THREE.Mesh(shoeGeo, toon(C.shoe, GRAD2)), 0.04);
+  shoe.castShadow = true; an.add(shoe);
+  kn.add(an); hs.add(kn); hips.add(hs);
+  return { hs, kn, an };
+}
+const legL = mkLeg(-1);
+const legR = mkLeg(1);
+
+// Skirt flare
+const skirtGeo = new THREE.CylinderGeometry(0.32, 0.38, 0.28, 10, 1, true);
+const skirt = outline(new THREE.Mesh(skirtGeo, toon(C.skirt, GRAD2, { side: THREE.DoubleSide })), 0.04);
+skirt.position.y = -0.14; hips.add(skirt);
+
+// ── SPINE ──
+const spine = new THREE.Group(); spine.position.y = 0.02; hips.add(spine);
+
+// Torso
+const torsoGeo = new THREE.CapsuleGeometry(0.25, 0.42, 4, 8);
+const torso = outline(new THREE.Mesh(torsoGeo, toon(C.shirt, GRAD2)), 0.05);
+torso.position.y = 0.38; torso.castShadow = true; spine.add(torso);
+
+// School bag
+const bagGeo = new THREE.BoxGeometry(0.28, 0.38, 0.14);
+const bag = outline(new THREE.Mesh(bagGeo, toon(C.bag, GRAD2)), 0.04);
+bag.position.set(0, 0.36, -0.26); bag.castShadow = true; spine.add(bag);
+const bagStrap = outline(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.42, 0.04), toon(C.bag, GRAD2)), 0.02);
+bagStrap.position.set(0.1, 0.38, -0.14); spine.add(bagStrap);
+
+// ── ARMS ──
+function mkArm(side) {
+  const sp = new THREE.Group(); sp.position.set(side * 0.3, 0.64, 0);
+  const uaGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.33, 7);
+  uaGeo.translate(0, -0.165, 0);
+  const ua = outline(new THREE.Mesh(uaGeo, toon(C.shirt, GRAD2)), 0.05);
+  ua.castShadow = true; sp.add(ua);
+  const ep = new THREE.Group(); ep.position.y = -0.33;
+  const faGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.3, 7);
+  faGeo.translate(0, -0.15, 0);
+  const fa = outline(new THREE.Mesh(faGeo, toon(C.skin, GRAD2)), 0.05);
+  fa.castShadow = true; ep.add(fa);
+  const handGeo = new THREE.SphereGeometry(0.065, 6, 6);
+  const hand = outline(new THREE.Mesh(handGeo, toon(C.skin, GRAD2)), 0.04);
+  hand.position.y = -0.3; ep.add(hand);
+  sp.add(ep); spine.add(sp);
+  return { sp, ep };
+}
+const armL = mkArm(-1);
+const armR = mkArm(1);
+
+// ── HEAD (big anime head) ──
+const neck = new THREE.Group(); neck.position.y = 0.76; spine.add(neck);
+
+// Neck
+const neckMesh = outline(new THREE.Mesh(
+  new THREE.CylinderGeometry(0.1, 0.12, 0.18, 7), toon(C.skin, GRAD2)), 0.04);
+neckMesh.position.y = 0.09; neck.add(neckMesh);
+
+// Head (anime: round, big)
+const headGeo = new THREE.SphereGeometry(0.26, 10, 8);
+const head = outline(new THREE.Mesh(headGeo, toon(C.skin, GRAD2)), 0.06);
+head.position.y = 0.3; head.castShadow = true; neck.add(head);
+
+// Chin (slightly tapered)
+const chinGeo = new THREE.SphereGeometry(0.22, 10, 6);
+const chin = new THREE.Mesh(chinGeo, toon(C.skin, GRAD2));
+chin.scale.set(0.95, 0.7, 0.95); chin.position.y = 0.18; neck.add(chin);
+
+// Hair (thick anime hair)
+const hairGroup = new THREE.Group(); hairGroup.position.y = 0.28; neck.add(hairGroup);
+// Main hair cap
+const hairCap = outline(new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), toon(C.hair, GRAD2)), 0.05);
+hairCap.scale.set(1, 0.78, 1); hairCap.position.y = 0.06; hairGroup.add(hairCap);
+// Bangs
+const bangGeo = new THREE.BoxGeometry(0.38, 0.14, 0.1);
+const bangs = outline(new THREE.Mesh(bangGeo, toon(C.hair, GRAD2)), 0.04);
+bangs.position.set(0, 0.14, 0.22); hairGroup.add(bangs);
+// Side locks
+[-1, 1].forEach(s => {
+  const lockGeo = new THREE.CapsuleGeometry(0.07, 0.22, 4, 6);
+  const lock = outline(new THREE.Mesh(lockGeo, toon(C.hair, GRAD2)), 0.04);
+  lock.position.set(s * 0.24, -0.06, 0.04); lock.rotation.z = s * 0.25;
+  hairGroup.add(lock);
+  // hair back side
+  const bGeo = new THREE.CapsuleGeometry(0.06, 0.35, 4, 6);
+  const bl = outline(new THREE.Mesh(bGeo, toon(C.hair, GRAD2)), 0.03);
+  bl.position.set(s * 0.2, -0.05, -0.18); bl.rotation.z = s * 0.15;
+  hairGroup.add(bl);
+});
+// Back hair bun/tail
+const tailGeo = new THREE.CapsuleGeometry(0.08, 0.28, 4, 6);
+const tail = outline(new THREE.Mesh(tailGeo, toon(C.hair, GRAD2)), 0.04);
+tail.position.set(0, -0.05, -0.22); tail.rotation.x = 0.4;
+hairGroup.add(tail);
+
+// ── FACE (anime style) ──
+// Eyes (big anime eyes)
+const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const eyePupilMat = new THREE.MeshBasicMaterial({ color: 0x1a0a30 });
+const eyeShine1Mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const eyeHighMat = new THREE.MeshBasicMaterial({ color: 0x5566cc });
+
+[-1, 1].forEach(s => {
+  const eyeBase = new THREE.Group();
+  eyeBase.position.set(s * 0.105, 0.34, 0.24);
+
+  // White (sclera)
+  const ew = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 5), eyeWhiteMat);
+  ew.scale.set(0.9, 1.3, 0.5); eyeBase.add(ew);
+  // Iris (colored)
+  const ei = new THREE.Mesh(new THREE.SphereGeometry(0.042, 6, 5), eyeHighMat);
+  ei.scale.set(0.85, 1.2, 0.5); ei.position.z = 0.01; eyeBase.add(ei);
+  // Pupil
+  const ep = new THREE.Mesh(new THREE.SphereGeometry(0.025, 5, 4), eyePupilMat);
+  ep.scale.set(0.8, 1.1, 0.5); ep.position.z = 0.02; eyeBase.add(ep);
+  // Shine
+  const es = new THREE.Mesh(new THREE.SphereGeometry(0.012, 4, 3), eyeShine1Mat);
+  es.position.set(0.015, 0.02, 0.03); eyeBase.add(es);
+  // Eyelash top
+  const lashMat = new THREE.MeshBasicMaterial({ color: 0x0a0508 });
+  const lash = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.022, 0.01), lashMat);
+  lash.position.set(0, 0.062, 0.02); eyeBase.add(lash);
+
+  neck.add(eyeBase);
+});
+
+// Eyebrows
+[-1, 1].forEach(s => {
+  const brow = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 0.018, 0.01),
+    new THREE.MeshBasicMaterial({ color: 0x1a0a00 })
+  );
+  brow.position.set(s * 0.105, 0.41, 0.245);
+  brow.rotation.z = s * -0.12;
+  neck.add(brow);
+});
+
+// Mouth (small anime mouth)
+const mouthMat = new THREE.MeshBasicMaterial({ color: 0xcc6677 });
+const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.018, 0.01), mouthMat);
+mouth.position.set(0, 0.25, 0.255); neck.add(mouth);
+
+// Blush marks
+const blushMat = new THREE.MeshBasicMaterial({ color: 0xffaaaa, transparent: true, opacity: 0.55 });
+[-1, 1].forEach(s => {
+  const blush = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.035), blushMat);
+  blush.position.set(s * 0.17, 0.29, 0.252); neck.add(blush);
+});
+
+// ═══════════════════════════════════════
+// ANIMATION STATE
+// ═══════════════════════════════════════
+let charSpeed = 0, walkCycle = 0, idleT = 0, charFacing = 0, wasMoving = false;
+
+// ═══════════════════════════════════════
+// 착지 연출 (Superman 낙하)
+// ═══════════════════════════════════════
+let landState = 'normal';   // 낙하 연출 제거
+let groundLevel = 0;
+
+// ══════════════════════════════════════
+// NPC 시스템
+// ══════════════════════════════════════
+const npcs = [];
+
+function createNPC(label, emoji, x, z, color = 0xff8844) {
+  const g = new THREE.Group();
+
+  // 몸통
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.6, 4, 8),
+    new THREE.MeshToonMaterial({ color, gradientMap: GRAD2 }));
+  body.position.y = 0.7; body.castShadow = true; g.add(body);
+
+  // 머리
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8),
+    new THREE.MeshToonMaterial({ color: 0xffcc99, gradientMap: GRAD2 }));
+  head.position.y = 1.55; head.castShadow = true; g.add(head);
+
+  // 말풍선 (Sprite)
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.roundRect(10, 10, 236, 90, 16); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(emoji, 128, 55);
+  ctx.font = '18px sans-serif';
+  ctx.fillText(label, 128, 88);
+  const tex = new THREE.CanvasTexture(canvas);
+  const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  bubble.scale.set(2.2, 1.1, 1);
+  bubble.position.y = 2.4;
+  g.add(bubble);
+
+  g.position.set(x, 0, z);
+  scene.add(g);
+  npcs.push({ group: g, label, x, z, range: 4 });
+  return g;
+}
+
+// NPC는 맵 로드 후 배치됨 (groundLevel 필요)
+let npcsPlaced = false;
+let mapObject   = null;     // 지면 추적용 맵 참조
+const footRay   = new THREE.Raycaster(); // 매 프레임 발 아래 레이
+const collRay   = new THREE.Raycaster(); // 충돌 감지용
+const footDir   = new THREE.Vector3(0, -1, 0);
+let landY     = 0;
+let landVY    = 0;
+let landTimer = 0;
+let camShake  = 0;
+
+// 착지 충격파 링
+const shockRings = [];
+function spawnShockRing() {
+  for (let i = 0; i < 3; i++) {
+    const geo  = new THREE.RingGeometry(0.01, 0.12, 32);
+    const mat  = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(charRoot.position.x, 0.02, charRoot.position.z);
+    ring.userData.age   = -i * 0.08;  // 시차 두고 등장
+    ring.userData.maxR  = 2.5 + i * 0.8;
+    scene.add(ring);
+    shockRings.push(ring);
+  }
+}
+
+// 먼지 파티클
+const dustParticles = [];
+function spawnDust() {
+  for (let i = 0; i < 18; i++) {
+    const geo  = new THREE.SphereGeometry(0.06 + Math.random() * 0.08, 4, 4);
+    const mat  = new THREE.MeshBasicMaterial({ color: 0xbbaa88, transparent: true, opacity: 0.75 });
+    const p    = new THREE.Mesh(geo, mat);
+    const ang  = (i / 18) * Math.PI * 2;
+    const spd  = 1.5 + Math.random() * 2.5;
+    p.position.set(charRoot.position.x, 0.1, charRoot.position.z);
+    p.userData.vx   = Math.cos(ang) * spd;
+    p.userData.vy   = 1.8 + Math.random() * 2.2;
+    p.userData.vz   = Math.sin(ang) * spd;
+    p.userData.life = 0;
+    scene.add(p);
+    dustParticles.push(p);
+  }
+}
+
+// ═══════════════════════════════════════
+// VRM 캐릭터 로드
+// ═══════════════════════════════════════
+let mixer = null;
+let walkAction = null, idleAction = null;
+let useGLTF = false;
+let vrmInstance = null;
+
+// ═══════════════════════════════════════
+// 서울 맵 로드
+// ═══════════════════════════════════════
+const mapLoader = new GLTFLoader();
+mapLoader.load(
+  'http://localhost:3456/impact__billys_house__low_poly_map_baked.glb',
+  (gltf) => {
+    const map = gltf.scene;
+
+    // 바운딩 박스로 스케일/위치 자동 보정
+    const box  = new THREE.Box3().setFromObject(map);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    console.log('서울맵 크기:', size);
+
+    // 너무 크면 축소 (가로 기준 200 유닛 이하로)
+    const maxDim = Math.max(size.x, size.z);
+    // 너무 크면 축소, 너무 작으면 확대 → 항상 60 유닛 기준
+    const TARGET = 120;
+    const sc = TARGET / maxDim;
+    map.scale.setScalar(sc);
+    console.log(`맵 스케일: ${sc.toFixed(2)} (원본 ${maxDim.toFixed(2)} → ${TARGET} 유닛)`);
+
+    // XZ만 가운데 정렬, Y는 건드리지 않음
+    map.position.set(-center.x * sc, 0, -center.z * sc);
+    console.log('맵 크기:', size.x.toFixed(1), size.y.toFixed(1), size.z.toFixed(1), '스케일:', sc.toFixed(3));
+
+    // 그림자 설정
+    map.traverse(child => {
+      if (!child.isMesh) return;
+      child.castShadow    = true;
+      child.receiveShadow = true;
+    });
+
+    scene.add(map);
+    proceduralEnv.visible = false;
+    mapObject = map; // 실시간 지면 추적용
+
+    // 초기 Y = 수동으로 찾은 도로 높이
+    groundLevel = 0;
+    // 집 문 앞 지면 탐색 (넓은 그리드에서 Y 샘플 수집 → 중간값)
+    const spawnRay = new THREE.Raycaster();
+    const spawnSamples = [];
+    for (let xi = -20; xi <= 20; xi += 4) {
+      for (let zi = -20; zi <= 20; zi += 4) {
+        spawnRay.set(new THREE.Vector3(xi, 9999, zi), new THREE.Vector3(0,-1,0));
+        const h = spawnRay.intersectObject(map, true);
+        if (h.length > 0) spawnSamples.push({ y: h[0].point.y, x: xi, z: zi });
+      }
+    }
+    spawnSamples.sort((a,b) => a.y - b.y);
+    // 가장 낮고 평평한 지면 중심 → 집 주변 도착점
+    const midSample = spawnSamples[Math.floor(spawnSamples.length * 0.25)] || { x:0, y:0, z:5 };
+    groundLevel = midSample.y;
+
+    // 집 계단 앞 배치 — 여러 후보 중 레이가 닿는 곳 선택
+    // 집 계단 바로 앞 (빨간 원 위치)
+    const candidates = [[4,1],[3,1],[5,1],[4,2],[3,2],[5,2],[4,0]];
+    let spawnX = 4, spawnZ = 1;
+    for (const [cx, cz] of candidates) {
+      spawnRay.set(new THREE.Vector3(cx, 9999, cz), new THREE.Vector3(0,-1,0));
+      const sh = spawnRay.intersectObject(map, true);
+      if (sh.length > 0) { spawnX = cx; spawnZ = cz; groundLevel = sh[0].point.y; break; }
+    }
+
+    charRoot.position.set(spawnX, groundLevel + 0.05, spawnZ);
+    // 고양이가 집 방향(-Z)을 향해 바라봄
+    charRoot.rotation.y = Math.PI;
+    charFacing = Math.PI;
+    landY = groundLevel;
+    console.log('스폰:', spawnX, groundLevel.toFixed(2), spawnZ);
+
+    console.log('✅ 맵 로드 완료 — 실시간 지면 추적 활성화');
+
+    // 동물 스폰 (맵 로드 후 유효한 지면 위에만)
+    spawnAnimalsOnMap(map);
+
+    // 참가신청·음악신청 모두 캐릭터 NPC가 담당 — 정적 NPC 없음
+    if (!npcsPlaced) { npcsPlaced = true; }
+
+    // 로딩 오버레이 제거
+    const el = document.getElementById('mapLoader');
+    if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.6s'; setTimeout(() => el.remove(), 700); }
+
+    console.log('✅ 서울 맵 로드 완료');
+  },
+  (xhr) => {
+    if (!xhr.total) return;
+    const pct = Math.round(xhr.loaded / xhr.total * 100);
+    const bar = document.getElementById('mapBar');
+    const txt = document.getElementById('mapPct');
+    if (bar) bar.style.width = pct + '%';
+    if (txt) txt.textContent = pct + '%';
+  },
+  (err) => {
+    console.error('❌ 서울 맵 로드 실패:', err);
+    const el = document.getElementById('mapLoader');
+    if (el) el.innerHTML = '<p style="color:#f88">맵 로드 실패 — 기본 환경으로 진행합니다</p>';
+    setTimeout(() => { const e = document.getElementById('mapLoader'); if(e) e.remove(); }, 2000);
+  }
+);
+
+// ── 고양이 GLB 로드 ──
+const catLoader = new GLTFLoader();
+catLoader.load(
+  'http://localhost:3456/oiiaioooooiai_cat.glb',
+  (gltf) => {
+    useGLTF = true;
+    hips.visible = false;
+
+    const model = gltf.scene;
+
+    // 크기 자동 보정 (목표 키: 1.7)
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const h = Math.max(size.x, size.y, size.z);
+    const sc2 = 1.7 / h;
+    model.scale.setScalar(sc2);
+
+    // 발이 땅에 닿도록 Y 보정
+    const box2 = new THREE.Box3().setFromObject(model);
+    model.position.y = -box2.min.y;
+
+    // 툰 쉐이딩 + 아웃라인
+    const meshes = [];
+    model.traverse(c => { if (c.isMesh) meshes.push(c); });
+    meshes.forEach(c => {
+      c.castShadow = true;
+      c.receiveShadow = true;
+      c.material = new THREE.MeshToonMaterial({
+        color: c.material.color || new THREE.Color(0xffffff),
+        map: c.material.map || null,
+        gradientMap: GRAD2,
+      });
+      const ol = new THREE.Mesh(c.geometry,
+        new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide }));
+      ol.scale.setScalar(1.04);
+      ol.castShadow = false;
+      c.add(ol);
+    });
+
+    charRoot.add(model);
+
+    // 회전 밈 애니메이션은 사용 안 함 → 프로시저럴로 대체
+    const clips = gltf.animations;
+    console.log('✅ 고양이 로드! 애니메이션:', clips.map(c=>c.name).join(', '));
+    // walkAction = null (고의로 비워둠 — 아래 animCat으로 제어)
+
+    // 모델 레퍼런스 저장 (프로시저럴 애니메이션용)
+    vrmInstance = { catModel: model };
+  },
+  (xhr) => { if (xhr.total) console.log('고양이 로딩:', Math.round(xhr.loaded/xhr.total*100)+'%'); },
+  (err) => { console.error('❌ 고양이 GLB 실패:', err); hips.visible = true; }
+);
+
+// ═══════════════════════════════════════
+// VRM 뼈 제어 애니메이션
+// ═══════════════════════════════════════
+let vrmWalkPhase = 0;
+let vrmBlend = 0; // 0=Idle, 1=Walk
+
+function setBone(vrm, name, rx, ry, rz) {
+  const node = vrm.humanoid.getNormalizedBoneNode(name);
+  if (!node) return;
+  node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, rx, 0.2);
+  node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, ry, 0.2);
+  node.rotation.z = THREE.MathUtils.lerp(node.rotation.z, rz, 0.2);
+}
+
+// lerp 속도를 모션별로 다르게 쓰기 위한 헬퍼
+function sb(vrm, name, rx, ry, rz, speed = 0.22) {
+  const node = vrm.humanoid.getNormalizedBoneNode(name);
+  if (!node) return;
+  node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, rx, speed);
+  node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, ry, speed);
+  node.rotation.z = THREE.MathUtils.lerp(node.rotation.z, rz, speed);
+}
+
+function animVRM(vrm, dt, moving, t, isRunning = false) {
+  vrmBlend = THREE.MathUtils.lerp(vrmBlend, moving ? 1 : 0, dt * 8);
+
+  const cycleSpeed = isRunning ? 13.0 : 6.5;
+  if (moving) vrmWalkPhase += dt * cycleSpeed;
+
+  const b  = vrmBlend;
+  const ph = vrmWalkPhase;
+
+  // 왼쪽/오른쪽 위상 분리
+  const phL = ph;
+  const phR = ph + Math.PI;
+  const swL = Math.sin(phL);
+  const swR = Math.sin(phR);
+
+  const ARM_REST = Math.PI / 2 * 0.85;
+  const sp = isRunning ? 0.38 : 0.22; // 달릴 때 뼈 보간 빠르게
+
+  if (isRunning && moving) {
+    // ══ 달리기 — 실제 인체 역학 ══
+
+    // ── 다리 ──
+    // 허벅지: 앞뒤로 크게 스윙 (달리기: ±0.75rad)
+    sb(vrm, 'leftUpperLeg',   swL * 0.78, 0,  0.04, sp);
+    sb(vrm, 'rightUpperLeg',  swR * 0.78, 0, -0.04, sp);
+
+    // 무릎: 앞으로 나갈 때 무릎 높이 들기, 뒤로 찰 때 쭉 펴기
+    // max(0, sin) = 앞 스윙 구간, max(0,-sin) = 뒤 스윙 구간
+    const kneeL = Math.max(0, swL) * 1.55   // 무릎 높이 들기
+                + Math.max(0, -swL) * 0.12  // 뒤로 찰 때 살짝 굽힘
+                + 0.06;
+    const kneeR = Math.max(0, swR) * 1.55
+                + Math.max(0, -swR) * 0.12
+                + 0.06;
+    sb(vrm, 'leftLowerLeg',  kneeL, 0, 0, sp);
+    sb(vrm, 'rightLowerLeg', kneeR, 0, 0, sp);
+
+    // 발목: 뒤로 찰 때 발끝이 아래를 향함 (toe-off)
+    const ankleL = Math.max(0, -swL) * -0.55 - 0.12;
+    const ankleR = Math.max(0, -swR) * -0.55 - 0.12;
+    sb(vrm, 'leftFoot',  ankleL, 0, 0, sp);
+    sb(vrm, 'rightFoot', ankleR, 0, 0, sp);
+
+    // ── 팔 (달릴 때 팔꿈치 ~90° 고정, 앞뒤로 펌핑) ──
+    // 왼팔은 오른다리와 반대 위상 (phR)
+    const armSwL = Math.sin(phR) * 0.72;  // 앞뒤 스윙
+    const armSwR = Math.sin(phL) * 0.72;
+    sb(vrm, 'leftUpperArm',   armSwL, 0,  ARM_REST * 0.42, sp);
+    sb(vrm, 'rightUpperArm',  armSwR, 0, -ARM_REST * 0.42, sp);
+
+    // 팔꿈치: 달릴 때 항상 ~90° 굽힘, 뒤로 갈 때 살짝 더 굽힘
+    const elbowL = 1.45 + Math.max(0, -armSwL) * 0.25;
+    const elbowR = 1.45 + Math.max(0, -armSwR) * 0.25;
+    sb(vrm, 'leftLowerArm',  0, 0,  elbowL, sp);
+    sb(vrm, 'rightLowerArm', 0, 0, -elbowR, sp);
+
+    // ── 몸통 ──
+    // 골반: 달릴 때 좌우 롤 + 수직 축 회전
+    sb(vrm, 'hips', 0, Math.sin(ph) * 0.12, Math.sin(ph * 2) * 0.06, sp);
+    // 척추: 앞으로 기울기 + 골반 반대 방향 회전 (counter-rotation)
+    sb(vrm, 'spine', 0.20, -Math.sin(ph) * 0.10, 0, sp);
+    sb(vrm, 'chest', 0.10, -Math.sin(ph) * 0.07, 0, sp);
+
+    // ── 머리 — 달릴 때도 시선은 정면 ──
+    sb(vrm, 'neck', -0.06, 0, 0, sp);
+    sb(vrm, 'head',  0.04, 0, 0, sp);
+
+    // ── 수직 바운스 (스텝마다 살짝 튀어오름) ──
+    const bounce = Math.abs(Math.sin(ph)) * 0.055;
+    charRoot.position.y = THREE.MathUtils.lerp(charRoot.position.y, groundLevel + bounce, 0.3);
+
+  } else {
+    // ══ 걷기 / 아이들 ══
+    charRoot.position.y = THREE.MathUtils.lerp(charRoot.position.y, groundLevel, 0.15);
+
+    sb(vrm, 'leftUpperArm',  Math.sin(phL) * 0.35 * b, 0,  ARM_REST, 0.2);
+    sb(vrm, 'rightUpperArm', Math.sin(phR) * 0.35 * b, 0, -ARM_REST, 0.2);
+    sb(vrm, 'leftLowerArm',  0, 0,  0.1, 0.2);
+    sb(vrm, 'rightLowerArm', 0, 0, -0.1, 0.2);
+
+    sb(vrm, 'leftUpperLeg',  swL * 0.52 * b, 0,  0.05, 0.2);
+    sb(vrm, 'rightUpperLeg', swR * 0.52 * b, 0, -0.05, 0.2);
+
+    sb(vrm, 'leftLowerLeg',  Math.max(0, swL) * 0.5 * b + 0.05, 0, 0, 0.2);
+    sb(vrm, 'rightLowerLeg', Math.max(0, swR) * 0.5 * b + 0.05, 0, 0, 0.2);
+
+    sb(vrm, 'leftFoot',  -0.1, 0, 0, 0.2);
+    sb(vrm, 'rightFoot', -0.1, 0, 0, 0.2);
+
+    sb(vrm, 'hips',  0, 0, Math.sin(ph * 2) * 0.04 * b, 0.15);
+    sb(vrm, 'spine', 0, Math.sin(ph) * 0.06 * b, 0, 0.15);
+    sb(vrm, 'chest', 0, -Math.sin(ph) * 0.04 * b, 0, 0.15);
+    sb(vrm, 'neck', 0, 0, 0, 0.15);
+    sb(vrm, 'head', 0, 0, 0, 0.15);
+
+    if (!moving) {
+      const breath = Math.sin(t * 1.3) * 0.012;
+      sb(vrm, 'spine', breath, 0, 0, 0.08);
+      sb(vrm, 'leftUpperArm',  0, 0,  ARM_REST + 0.05, 0.08);
+      sb(vrm, 'rightUpperArm', 0, 0, -ARM_REST - 0.05, 0.08);
+    }
+  }
+}
+
+// ── 고양이 프로시저럴 걷기 애니메이션 ──
+let catWalkPhase = 0;
+let catSpeedBlend = 0;
+
+function animCat(model, dt, moving, isRunning, t) {
+  catSpeedBlend = THREE.MathUtils.lerp(catSpeedBlend, moving ? 1 : 0, dt * 7);
+  const b = catSpeedBlend;
+  const freq = isRunning ? 14 : 8;
+  if (moving) catWalkPhase += dt * freq;
+
+  // 상하 바운스
+  const bounce = Math.abs(Math.sin(catWalkPhase)) * 0.1 * b;
+
+  // 좌우 롤링 (고양이 특유의 뒤뚱거림)
+  const roll = Math.sin(catWalkPhase * 2) * 0.12 * b;
+  model.rotation.z = THREE.MathUtils.lerp(model.rotation.z, roll, 0.2);
+
+  // 앞뒤 피칭 (앞으로 숙이기)
+  const pitch = b * 0.15 + Math.sin(catWalkPhase) * 0.06 * b;
+  model.rotation.x = THREE.MathUtils.lerp(model.rotation.x, pitch, 0.15);
+
+  // 몸통 좌우 흔들기 (걸음마다)
+  const sway = Math.sin(catWalkPhase * 2) * 0.08 * b;
+  model.rotation.y = THREE.MathUtils.lerp(model.rotation.y, sway, 0.15);
+
+  // charRoot 수직 바운스
+  charRoot.position.y = THREE.MathUtils.lerp(
+    charRoot.position.y,
+    groundLevel + Math.abs(Math.sin(catWalkPhase)) * 0.08 * b,
+    0.2
+  );
+
+  // 아이들: 숨쉬기 (부드러운 상하)
+  if (!moving) {
+    const breath = Math.sin(t * 1.5) * 0.03;
+    model.rotation.x = THREE.MathUtils.lerp(model.rotation.x, breath, 0.05);
+    model.rotation.z = THREE.MathUtils.lerp(model.rotation.z, 0, 0.05);
+  }
+}
+
+function lerpA(a, b, t) {
+  let d = ((b - a) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  return a + d * t;
+}
+
+function animChar(dt, moving) {
+  const sp = charSpeed;
+  if (moving) walkCycle += dt * 6.5;
+  const phL = walkCycle, phR = walkCycle + Math.PI;
+
+  // Legs
+  function animLeg(leg, ph) {
+    const sw = Math.sin(ph);
+    const lift = Math.max(0, sw);
+    leg.hs.rotation.x = THREE.MathUtils.lerp(leg.hs.rotation.x, sw * 0.4 * sp, 0.32);
+    leg.kn.rotation.x = THREE.MathUtils.lerp(leg.kn.rotation.x, lift * 0.72 * sp + 0.06, 0.28);
+    leg.an.rotation.x = THREE.MathUtils.lerp(leg.an.rotation.x, -lift * 0.22 * sp, 0.28);
+  }
+  animLeg(legL, phL); animLeg(legR, phR);
+
+  // Arms
+  function animArm(arm, ph) {
+    const sw = Math.sin(ph);
+    arm.sp.rotation.x = THREE.MathUtils.lerp(arm.sp.rotation.x, sw * 0.35 * sp, 0.28);
+    arm.ep.rotation.x = THREE.MathUtils.lerp(arm.ep.rotation.x, Math.max(0,-sw)*0.45*sp + 0.08, 0.28);
+  }
+  animArm(armL, phR); animArm(armR, phL);
+
+  // Hips sway + lean
+  hips.rotation.z = THREE.MathUtils.lerp(hips.rotation.z, Math.sin(walkCycle*2)*0.055*sp, 0.14);
+  hips.rotation.x = THREE.MathUtils.lerp(hips.rotation.x, -sp*0.07, 0.12);
+  hips.position.y = THREE.MathUtils.lerp(hips.position.y, 0.82 + Math.abs(Math.sin(walkCycle))*0.032*sp, 0.18);
+
+  // Spine counter-twist
+  spine.rotation.y = THREE.MathUtils.lerp(spine.rotation.y, Math.sin(walkCycle)*0.07*sp, 0.14);
+
+  // Head stays level
+  neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, Math.abs(Math.sin(walkCycle*2))*0.035*sp, 0.1);
+  neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, -spine.rotation.y, 0.1);
+
+  // Idle breathing
+  if (!moving) {
+    idleT += dt;
+    torso.scale.y = 1 + Math.sin(idleT * 1.3) * 0.015;
+    spine.rotation.z = Math.sin(idleT * 0.7) * 0.015;
+    neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, Math.sin(idleT * 0.5) * 0.06, 0.06);
+  } else {
+    idleT = 0;
+    torso.scale.y = THREE.MathUtils.lerp(torso.scale.y, 1, 0.1);
+  }
+}
+
+// ═══════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+
+  // [ ] 키로 캐릭터 Y 위치 수동 조정
+  const step = e.shiftKey ? 5 : 1;
+  if (e.code === 'BracketLeft')  { groundLevel -= step; }
+  if (e.code === 'BracketRight') { groundLevel += step; }
+  if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+    charRoot.position.y = groundLevel;
+    const el = document.getElementById('yInfo');
+    const val = document.getElementById('yVal');
+    if (el) el.style.display = 'block';
+    if (val) val.textContent = groundLevel.toFixed(2);
+    console.log('현재 Y:', groundLevel.toFixed(2));
+  }
+});
+addEventListener('keyup',   e => { keys[e.code] = false; });
+
+let camYaw = 0, camPitch = 0.35, isLocked = false;
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
+if (!isMobile) {
+  renderer.domElement.addEventListener('click', () => {
+    if (!window._inDialog) renderer.domElement.requestPointerLock();
+  });
+  document.addEventListener('pointerlockchange', () => { isLocked = document.pointerLockElement === renderer.domElement; });
+  document.addEventListener('mousemove', e => {
+    if (!isLocked) return;
+    camYaw   -= e.movementX * 0.0025;
+    camPitch  = Math.max(0.05, Math.min(0.7, camPitch - e.movementY * 0.0025));
+  });
+}
+
+// ── 모바일 터치 카메라 (오른쪽 영역 드래그) ──
+const touchCam = { id: null, lx: 0, ly: 0 };
+const touchJoy = { id: null, sx: 0, sy: 0, dx: 0, dy: 0 };
+let touchRunning = false;
+
+if (isMobile) {
+  // 조이스틱
+  const jZone = document.getElementById('joystickZone');
+  const jKnob = document.getElementById('joystickKnob');
+  const JR = 60, KR = 24;
+
+  jZone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const r = jZone.getBoundingClientRect();
+    touchJoy.id = t.identifier;
+    touchJoy.sx = r.left + JR;
+    touchJoy.sy = r.top  + JR;
+    touchJoy.dx = 0; touchJoy.dy = 0;
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      // 조이스틱 처리
+      if (t.identifier === touchJoy.id) {
+        let dx = t.clientX - touchJoy.sx;
+        let dy = t.clientY - touchJoy.sy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > JR - KR) { dx *= (JR-KR)/dist; dy *= (JR-KR)/dist; }
+        touchJoy.dx = dx; touchJoy.dy = dy;
+        jKnob.style.left = (JR - KR + dx) + 'px';
+        jKnob.style.top  = (JR - KR + dy) + 'px';
+      }
+      // 카메라 터치 처리 (조이스틱 아닌 터치)
+      if (t.identifier === touchCam.id) {
+        const ddx = t.clientX - touchCam.lx;
+        const ddy = t.clientY - touchCam.ly;
+        camYaw   -= ddx * 0.004;
+        camPitch  = Math.max(0.05, Math.min(0.7, camPitch - ddy * 0.004));
+        touchCam.lx = t.clientX;
+        touchCam.ly = t.clientY;
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchstart', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchJoy.id) continue;
+      // 조이스틱 영역 터치는 카메라 아님
+      const jRect = jZone.getBoundingClientRect();
+      const inJoy = t.clientX >= jRect.left && t.clientX <= jRect.right
+                 && t.clientY >= jRect.top  && t.clientY <= jRect.bottom;
+      if (!inJoy && touchCam.id === null && !window._inDialog) {
+        touchCam.id = t.identifier;
+        touchCam.lx = t.clientX;
+        touchCam.ly = t.clientY;
+      }
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchJoy.id) {
+        touchJoy.id = null; touchJoy.dx = 0; touchJoy.dy = 0;
+        jKnob.style.left = KR + 'px';
+        jKnob.style.top  = KR + 'px';
+      }
+      if (t.identifier === touchCam.id) touchCam.id = null;
+    }
+  }, { passive: true });
+
+  // 달리기 버튼
+  const runBtn = document.getElementById('touchRunBtn');
+  runBtn.addEventListener('touchstart', e => { e.preventDefault(); touchRunning = true; runBtn.style.background='rgba(255,255,255,0.38)'; }, { passive: false });
+  runBtn.addEventListener('touchend',   e => { e.preventDefault(); touchRunning = false; runBtn.style.background='rgba(255,255,255,0.18)'; }, { passive: false });
+
+  // 상호작용 버튼
+  document.getElementById('touchInteractBtn').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (nearAnimal) { openAnimalDialog(nearAnimal); return; }
+    if (nearNPC?.label === '참가 신청') openYoojinDialog();
+    else if (nearNPC?.label === '음악 신청') openPunkDialog();
+  }, { passive: false });
+}
+
+// ═══════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════
+const clock  = new THREE.Clock();
+const camPos = new THREE.Vector3(0, 5.5, 9);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  const dir = new THREE.Vector3();
+  // ── 낙하 / 착지 연출 ──
+  if (landState === 'falling') {
+    landVY   -= 38 * dt;                        // 중력 가속
+    landY    += landVY * dt;
+
+    if (landY <= groundLevel) {                 // 착지!
+      landY     = groundLevel;
+      landState = 'impact';
+      landTimer = 0;
+      camShake  = 0.55;
+      spawnShockRing();
+      spawnDust();
+    }
+    charRoot.position.y = Math.max(0, landY);
+
+    // 낙하 중 VRM 포즈 (팔 위로, 다리 약간 굽힘)
+    if (vrmInstance) {
+      sb(vrmInstance, 'leftUpperArm',  -0.4, 0,  1.0);
+      sb(vrmInstance, 'rightUpperArm', -0.4, 0, -1.0);
+      sb(vrmInstance, 'leftLowerArm',  0, 0, 0.3);
+      sb(vrmInstance, 'rightLowerArm', 0, 0, -0.3);
+      sb(vrmInstance, 'leftUpperLeg',  0.3, 0, 0.05);
+      sb(vrmInstance, 'rightUpperLeg', 0.3, 0, -0.05);
+      sb(vrmInstance, 'leftLowerLeg',  0.5, 0, 0);
+      sb(vrmInstance, 'rightLowerLeg', 0.5, 0, 0);
+      sb(vrmInstance, 'spine', 0.15, 0, 0);
+      vrmInstance.update(dt);
+    }
+
+  } else if (landState === 'impact') {
+    landTimer += dt;
+    // 착지 찌그러짐 → 튀어오르기
+    const squish = 1 - Math.sin(Math.min(landTimer / 0.18, 1) * Math.PI) * 0.35;
+    charRoot.scale.set(1 + (1 - squish) * 0.4, squish, 1 + (1 - squish) * 0.4);
+
+    if (landTimer > 0.55) {
+      charRoot.scale.set(1, 1, 1);
+      landState = 'normal';
+    }
+  }
+
+  // 충격파 링 업데이트
+  for (let i = shockRings.length - 1; i >= 0; i--) {
+    const r = shockRings[i];
+    r.userData.age += dt;
+    if (r.userData.age < 0) continue;
+    const prog = r.userData.age / 0.7;
+    if (prog >= 1) { scene.remove(r); shockRings.splice(i, 1); continue; }
+    const s = r.userData.maxR * prog;
+    r.scale.set(s, s, s);
+    r.material.opacity = 0.75 * (1 - prog);
+  }
+
+  // 먼지 파티클 업데이트
+  for (let i = dustParticles.length - 1; i >= 0; i--) {
+    const p = dustParticles[i];
+    p.userData.life += dt;
+    const life = p.userData.life;
+    if (life > 1.1) { scene.remove(p); dustParticles.splice(i, 1); continue; }
+    p.userData.vy  -= 5 * dt;
+    p.position.x   += p.userData.vx * dt;
+    p.position.y   += p.userData.vy * dt;
+    p.position.z   += p.userData.vz * dt;
+    if (p.position.y < 0) p.position.y = 0;
+    p.material.opacity = 0.75 * (1 - life / 1.1);
+    p.scale.setScalar(1 + life * 1.5);
+  }
+
+  // 카메라 흔들림
+  if (camShake > 0) {
+    camShake = Math.max(0, camShake - dt * 3);
+  }
+
+  // ── 입력 (착지 후에만) ──
+  const canMove = landState === 'normal';
+  if (keys['KeyW'] || keys['ArrowUp'])    dir.z -= 1;
+  if (keys['KeyS'] || keys['ArrowDown'])  dir.z += 1;
+  if (keys['KeyA'] || keys['ArrowLeft'])  dir.x -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) dir.x += 1;
+  // 모바일 조이스틱 입력
+  if (isMobile && touchJoy.id !== null) {
+    const jDeadzone = 8;
+    if (Math.abs(touchJoy.dx) > jDeadzone || Math.abs(touchJoy.dy) > jDeadzone) {
+      dir.z += touchJoy.dy / 60;
+      dir.x += touchJoy.dx / 60;
+    }
+  }
+  const isRunning = canMove && (keys['ShiftLeft'] || keys['ShiftRight'] || touchRunning);
+  const moving    = canMove && !window._inDialog && dir.length() > 0.01;
+  const moveSpeed = isRunning ? 10.0 : 4.5;
+
+  charSpeed += ((moving ? 1 : 0) - charSpeed) * Math.min(1, dt * 9);
+
+  if (moving) {
+    dir.normalize();
+    const wa = Math.atan2(dir.x, dir.z) + camYaw;
+    const moveVec = new THREE.Vector3(Math.sin(wa), 0, Math.cos(wa));
+
+    // ── 충돌 감지 (수평 레이캐스트 2단계 높이) ──
+    let blocked = false;
+    if (mapObject) {
+      const origin1 = new THREE.Vector3(charRoot.position.x, charRoot.position.y + 0.8, charRoot.position.z);
+      const origin2 = new THREE.Vector3(charRoot.position.x, charRoot.position.y + 1.6, charRoot.position.z);
+      for (const orig of [origin1, origin2]) {
+        collRay.set(orig, moveVec);
+        const hits = collRay.intersectObject(mapObject, true);
+        if (hits.length > 0 && hits[0].distance < 1.0) { blocked = true; break; }
+      }
+    }
+
+    if (!blocked) {
+      charRoot.position.x += moveVec.x * moveSpeed * charSpeed * dt;
+      charRoot.position.z += moveVec.z * moveSpeed * charSpeed * dt;
+    }
+    charFacing = lerpA(charFacing, useGLTF ? wa : wa + Math.PI, isRunning ? 0.25 : 0.16);
+  }
+  charRoot.rotation.y = charFacing;
+  // BGM 공간 음향 — 집 중심에서 거리에 따라 볼륨 조절
+  if (window._bgmReady) {
+    const hx = 0, hz = 0; // 집 중심 (맵 XZ 중심)
+    const dx = charRoot.position.x - hx;
+    const dz = charRoot.position.z - hz;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    const maxDist = 45; // 이 거리 이상이면 무음
+    const minDist = 8;  // 이 거리 이하면 최대 볼륨
+    const vol = Math.max(0, Math.min(1, 1 - (dist - minDist) / (maxDist - minDist)));
+    document.getElementById('bgm').volume = vol * 0.45;
+  }
+
+  // 전역 노출 (외부 스크립트에서 접근)
+  window.THREE        = THREE;
+  window._charRoot    = charRoot;
+  window._scene       = scene;
+  window._groundLevel = groundLevel;
+  window._isMoving    = moving;
+  window._npcs        = npcs.map(n => ({ label: n.label, x: n.group.position.x, z: n.group.position.z }));
+
+  // ── 실시간 지면 추적 ──
+  if (mapObject) {
+    // 캐릭터 발 위 5유닛에서 아래로 레이
+    footRay.set(
+      new THREE.Vector3(charRoot.position.x, charRoot.position.y + 5, charRoot.position.z),
+      footDir
+    );
+    const fHits = footRay.intersectObject(mapObject, true);
+    if (fHits.length > 0) {
+      const surfaceY = fHits[0].point.y;
+      // 급격한 변화 방지 (절벽 등) — 최대 0.5유닛/프레임
+      const diff = surfaceY - groundLevel;
+      if (Math.abs(diff) < 3) {
+        groundLevel += diff * 0.25; // 부드럽게 추적
+      }
+    }
+  }
+  if (useGLTF) {
+    if (mixer) mixer.update(dt);
+    if (vrmInstance?.catModel) {
+      // 고양이 프로시저럴 애니메이션
+      animCat(vrmInstance.catModel, dt, moving, isRunning, clock.elapsedTime);
+    } else if (vrmInstance?.update) {
+      // VRM 폴백
+      animVRM(vrmInstance, dt, moving, clock.elapsedTime, isRunning);
+      vrmInstance.update(dt);
+    }
+  } else {
+    animChar(dt, moving);
+  }
+
+  // Camera
+  const cd = 6; // 카메라 거리
+  const cx = charRoot.position.x + Math.sin(camYaw)*cd*Math.cos(camPitch);
+  const cz = charRoot.position.z + Math.cos(camYaw)*cd*Math.cos(camPitch);
+  const cy = charRoot.position.y + 3.5 + Math.sin(camPitch)*cd;
+  camPos.lerp(new THREE.Vector3(cx, cy, cz), 0.09);
+  camera.position.copy(camPos);
+  // 카메라 흔들림
+  const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 0.4 : 0;
+  const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 0.3 : 0;
+  camera.position.x += shakeX;
+  camera.position.y += shakeY;
+  camera.lookAt(charRoot.position.x, charRoot.position.y + 1.5, charRoot.position.z);
+
+  // ── 동물 배회 AI ──
+  if (window._wanderers && window._wanderers.length) updateWanderers(dt);
+
+  // ── Punkman 배회 AI ──
+  if (window._punkman) updatePunkman(dt);
+  // ── 이유진 배회 AI ──
+  if (window._yoojin) updateYoojin(dt);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ══ 동물 배회 NPC 시스템 ══
+const ANIMALS = [
+  { file: 'Wolf.glb',                  scale: 0.27, speed: 2.2 },
+  { file: 'White Horse.glb',           scale: 0.37, speed: 2.8 },
+  { file: 'Stag.glb',                  scale: 0.33, speed: 2.4 },
+  { file: 'Shiba Inu.glb',             scale: 0.20, speed: 2.0 },
+  { file: 'Husky.glb',                 scale: 0.22, speed: 2.0 },
+  { file: 'Horse.glb',                 scale: 0.37, speed: 2.8 },
+  { file: 'Fox.glb',                   scale: 0.20, speed: 2.1 },
+  { file: 'Donkey.glb',                scale: 0.30, speed: 1.8 },
+  { file: 'Deer.glb',                  scale: 0.30, speed: 2.3 },
+  { file: 'Cow.glb',                   scale: 0.33, speed: 1.6 },
+  { file: 'Bull.glb',                  scale: 0.35, speed: 1.7 },
+  { file: 'Alpaca.glb',                scale: 0.28, speed: 1.9 },
+  { file: 'Sheep.glb',                 scale: 0.23, speed: 1.7 },
+  { file: 'Shark.glb',                 scale: 0.30, speed: 2.5 },
+  { file: 'Rabbit.glb',                scale: 0.15, speed: 2.4 },
+  { file: 'Penguin.glb',               scale: 0.18, speed: 1.4 },
+  { file: 'Lizard.glb',                scale: 0.17, speed: 1.8 },
+  { file: 'Giraffe.glb',               scale: 0.40, speed: 1.9 },
+  { file: 'Frog.glb',                  scale: 0.13, speed: 1.6 },
+  { file: 'Duck.glb',                  scale: 0.15, speed: 1.5 },
+  { file: 'Dog-9bqPCxOyrk.glb',        scale: 0.20, speed: 2.1 },
+  { file: 'Dog.glb',                   scale: 0.20, speed: 2.0 },
+  { file: 'Dog Final ().glb',          scale: 0.20, speed: 2.0 },
+  { file: 'Deer-bLT2gJHPPt.glb',       scale: 0.30, speed: 2.2 },
+  { file: 'Corgi.glb',                 scale: 0.17, speed: 2.0 },
+  { file: 'Chicken.glb',               scale: 0.15, speed: 1.5 },
+  { file: 'Chick.glb',                 scale: 0.10, speed: 1.3 },
+  { file: 'Cat.glb',                   scale: 0.17, speed: 1.8 },
+  { file: 'Bizon.glb',                 scale: 0.37, speed: 1.6 },
+  { file: 'Bird-h5lzAUdltz.glb',       scale: 0.13, speed: 2.3 },
+  { file: 'Bird.glb',                  scale: 0.13, speed: 2.3 },
+  { file: 'Bear.glb',                  scale: 0.33, speed: 1.8 },
+  { file: 'Beagle.glb',                scale: 0.18, speed: 2.0 },
+];
+
+window._wanderers = []; // 로드된 동물들
+const wanderers = window._wanderers;
+const _wFootDir = new THREE.Vector3(0, -1, 0);
+
+function pickWanderTarget(cx = 0, cz = 0, minR = 10, maxR = 45) {
+  const angle = Math.random() * Math.PI * 2;
+  const r = minR + Math.random() * (maxR - minR);
+  return new THREE.Vector3(cx + Math.cos(angle) * r, 0, cz + Math.sin(angle) * r);
+}
+
+const _spawnRay = new THREE.Raycaster();
+const _spawnDir = new THREE.Vector3(0, -1, 0);
+
+function findGroundPos(mapObj, minR = 5, maxR = 30, maxY = 1.5) {
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = minR + Math.random() * (maxR - minR);
+    const x = Math.cos(angle) * r;
+    const z = Math.sin(angle) * r;
+    _spawnRay.set(new THREE.Vector3(x, 999, z), _spawnDir);
+    const hits = _spawnRay.intersectObject(mapObj, true);
+    // 모든 hit 중 maxY 이하인 가장 낮은 지점 선택 (지붕 제외)
+    const groundHit = hits.filter(h => h.point.y <= maxY).sort((a,b) => b.point.y - a.point.y)[0];
+    if (groundHit) return new THREE.Vector3(x, groundHit.point.y, z);
+  }
+  return null;
+}
+
+function spawnAnimalsOnMap(mapObj) {
+  ANIMALS.forEach(({ file, scale, speed }) => {
+    const loader = new GLTFLoader();
+    loader.load(file, (gltf) => {
+      const model = gltf.scene;
+      model.scale.setScalar(scale);
+      model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+
+      // 유효한 지면 위에 배치
+      const pos = findGroundPos(mapObj, 20, 45);
+      if (!pos) { console.warn(`⚠️ ${file} 스폰 위치 없음`); return; }
+      model.position.copy(pos);
+      scene.add(model);
+
+      // 애니메이션 없으면 삭제
+      if (!gltf.animations.length) {
+        scene.remove(model);
+        console.log(`🗑️ ${file} — 애니메이션 없음, 제외`);
+        return;
+      }
+
+      const mixer = new THREE.AnimationMixer(model);
+      const walkClip = gltf.animations.find(a => /walk|run|trot/i.test(a.name)) || gltf.animations[0];
+      const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name));
+      const walkAction = mixer.clipAction(walkClip);
+      walkAction.play();
+      const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
+      if (idleAction) { idleAction.play(); idleAction.weight = 0; }
+
+      wanderers.push({
+        model, mixer, walkAction, idleAction,
+        mapObj, file,
+        speed: speed * (0.8 + Math.random() * 0.4),
+        target: pos.clone(),
+        waiting: true,
+        waitTimer: Math.random() * 3,
+        footRay: new THREE.Raycaster(),
+      });
+      console.log(`🐾 ${file} 스폰 완료 @ ${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}`);
+    }, undefined, () => console.warn(`⚠️ ${file} 로드 실패`));
+  });
+}
+
+function updateWanderers(dt) {
+  wanderers.forEach(w => {
+    if (w.mixer) w.mixer.update(dt);
+
+    if (w.waiting) {
+      // 플레이어 쳐다보기
+      if (w._lookAtPlayer && window._charRoot) {
+        const dx = window._charRoot.position.x - w.model.position.x;
+        const dz = window._charRoot.position.z - w.model.position.z;
+        const targetRY = Math.atan2(dx, dz);
+        w.model.rotation.y += (targetRY - w.model.rotation.y) * Math.min(1, dt * 6);
+      }
+      w.waitTimer -= dt;
+      if (w.waitTimer <= 0 && !w._lookAtPlayer) {
+        const np = w.mapObj ? findGroundPos(w.mapObj, 20, 45) : pickWanderTarget();
+        if (np) w.target.copy(np);
+        w.waiting = false;
+        if (w.walkAction) w.walkAction.weight = 1;
+        if (w.idleAction) w.idleAction.weight = 0;
+      }
+      return;
+    }
+
+    const dx = w.target.x - w.model.position.x;
+    const dz = w.target.z - w.model.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < 1.0) {
+      w.waiting = true;
+      w.waitTimer = 3 + Math.random() * 5;
+      if (w.walkAction) w.walkAction.weight = 0;
+      if (w.idleAction) w.idleAction.weight = 1;
+      return;
+    }
+
+    const nx = dx / dist, nz = dz / dist;
+    w.model.position.x += nx * w.speed * dt;
+    w.model.position.z += nz * w.speed * dt;
+    w.model.rotation.y = Math.atan2(nx, nz);
+
+    // 지면 추적
+    if (mapObject) {
+      w.footRay.set(new THREE.Vector3(w.model.position.x, w.model.position.y + 10, w.model.position.z), _wFootDir);
+      const hits = w.footRay.intersectObject(mapObject, true);
+      const gh = hits.filter(h => h.point.y <= 1.5).sort((a,b) => b.point.y - a.point.y)[0];
+      if (gh) w.model.position.y = gh.point.y;
+    }
+
+    // 애니메이션 없는 모델 → 절차적 걷기 (바운스 + 앞뒤 기울기)
+    if (!w.mixer) {
+      const t = performance.now() / 1000;
+      const freq = w.speed * 2.5;
+      w.model.position.y += Math.abs(Math.sin(t * freq)) * 0.06;
+      w.model.rotation.x = Math.sin(t * freq) * 0.08;
+    }
+  });
+}
+
+// ══ Punkman 배회 NPC ══
+(function loadPunkman() {
+  const loader = new GLTFLoader();
+  loader.load('Punkman.glb', (gltf) => {
+    const model = gltf.scene;
+    model.scale.setScalar(0.9);
+    model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+    scene.add(model);
+
+    // 내장 애니메이션 설정
+    const mixer = gltf.animations.length ? new THREE.AnimationMixer(model) : null;
+    let walkAction = null, idleAction = null;
+    if (mixer) {
+      // 이름에 walk/run 포함된 클립 자동 선택
+      const walkClip = gltf.animations.find(a => /walk|run/i.test(a.name)) || gltf.animations[0];
+      const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name));
+      if (walkClip) { walkAction = mixer.clipAction(walkClip); walkAction.play(); walkAction.weight = 0; }
+      if (idleClip) { idleAction = mixer.clipAction(idleClip); idleAction.play(); idleAction.weight = 1; }
+    }
+
+    window._punkman = {
+      model, mixer, walkAction, idleAction,
+      // 배회 상태
+      target: new THREE.Vector3(3, 0, 3),
+      waitTimer: 0,
+      waiting: false,
+      speed: 1.4,
+      footRay: new THREE.Raycaster(),
+    };
+
+    // 이름표 (블루 배지)
+    const tag = makeNameSprite('최관철', '#7B9FE0');
+    tag.position.y = 2.4;
+    model.add(tag);
+
+    // 초기 위치 (집 앞)
+    model.position.set(5, 0, 3);
+    console.log('🤖 최관철 로드 완료');
+  }, undefined, (e) => console.warn('Punkman 로드 실패:', e));
+})();
+
+const _punkFootDir = new THREE.Vector3(0, -1, 0);
+
+function updatePunkman(dt) {
+  const p = window._punkman;
+  const { model, mixer, walkAction, idleAction } = p;
+
+  // 믹서 업데이트
+  if (mixer) mixer.update(dt);
+
+  if (p._lookAtPlayer) {
+    // 대화 중 — 완전히 멈추고 플레이어 쳐다보기
+    if (window._charRoot) {
+      const dx = window._charRoot.position.x - model.position.x;
+      const dz = window._charRoot.position.z - model.position.z;
+      model.rotation.y += (Math.atan2(dx, dz) - model.rotation.y) * Math.min(1, dt * 6);
+    }
+    // 걷기 애니메이션 중단, idle로
+    if (walkAction) walkAction.weight = 0;
+    if (idleAction) { idleAction.weight = 1; }
+    if (mixer) mixer.update(dt);
+    return;
+  }
+
+  if (p.waiting) {
+    p.waitTimer -= dt;
+    if (p.waitTimer <= 0) {
+      // 새 목표 선택 — 집 중심(0,0) 반경 12 내
+      const angle = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * 8;
+      p.target.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+      p.waiting = false;
+      if (walkAction) { walkAction.weight = 1; }
+      if (idleAction) { idleAction.weight = 0; }
+    }
+    return;
+  }
+
+  // 목표로 이동
+  const dx = p.target.x - model.position.x;
+  const dz = p.target.z - model.position.z;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+
+  if (dist < 0.5) {
+    // 도착 → 잠시 대기
+    p.waiting = true;
+    p.waitTimer = 2 + Math.random() * 3;
+    if (walkAction) { walkAction.weight = 0; }
+    if (idleAction) { idleAction.weight = 1; }
+    return;
+  }
+
+  const nx = dx / dist, nz = dz / dist;
+  model.position.x += nx * p.speed * dt;
+  model.position.z += nz * p.speed * dt;
+
+  // 방향 전환
+  model.rotation.y = Math.atan2(nx, nz);
+
+  // 지면 추적
+  if (mapObject) {
+    p.footRay.set(new THREE.Vector3(model.position.x, model.position.y + 5, model.position.z), _punkFootDir);
+    const hits = p.footRay.intersectObject(mapObject, true);
+    const gh = hits.filter(h => h.point.y <= 1.5).sort((a,b) => b.point.y - a.point.y)[0];
+    if (gh) model.position.y = gh.point.y;
+  }
+
+  // 걷기 애니메이션 없으면 바운스
+  if (!mixer) {
+    const t = performance.now() / 1000;
+    model.position.y += Math.abs(Math.sin(t * 6)) * 0.08;
+  }
+}
+
+// ══ 이유진 NPC (참가 신청) ══
+(function loadYoojin() {
+  const loader = new GLTFLoader();
+  loader.load('yooj.glb', (gltf) => {
+    const model = gltf.scene;
+    model.scale.setScalar(0.9);
+    model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+    scene.add(model);
+
+    // 이름표 (오렌지 배지)
+    const tag = makeNameSprite('이유진', '#E8855A');
+    tag.position.y = 2.2;
+    model.add(tag);
+
+    const mixer = gltf.animations.length ? new THREE.AnimationMixer(model) : null;
+    let walkAction = null, idleAction = null;
+    if (mixer) {
+      const walkClip = gltf.animations.find(a => /walk|run/i.test(a.name)) || gltf.animations[0];
+      const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name));
+      if (walkClip) { walkAction = mixer.clipAction(walkClip); walkAction.play(); }
+      if (idleClip) { idleAction = mixer.clipAction(idleClip); idleAction.play(); idleAction.weight = 0; }
+    }
+
+    model.position.set(-5, 0, 3);
+
+    window._yoojin = {
+      model, mixer, walkAction, idleAction,
+      target: new THREE.Vector3(-5, 0, 3),
+      waitTimer: Math.random() * 3,
+      waiting: true,
+      speed: 1.6,
+      footRay: new THREE.Raycaster(),
+    };
+    console.log('👩 이유진 로드 완료');
+  }, undefined, (e) => console.warn('이유진 로드 실패:', e));
+})();
+
+const _yoojFootDir = new THREE.Vector3(0, -1, 0);
+
+function updateYoojin(dt) {
+  const p = window._yoojin;
+  if (!p) return;
+  const { model, mixer, walkAction, idleAction } = p;
+
+  if (mixer) mixer.update(dt);
+
+  if (p._lookAtPlayer) {
+    if (window._charRoot) {
+      const dx = window._charRoot.position.x - model.position.x;
+      const dz = window._charRoot.position.z - model.position.z;
+      model.rotation.y += (Math.atan2(dx, dz) - model.rotation.y) * Math.min(1, dt * 6);
+    }
+    if (walkAction) walkAction.weight = 0;
+    if (idleAction) idleAction.weight = 1;
+    return;
+  }
+
+  if (p.waiting) {
+    p.waitTimer -= dt;
+    if (p.waitTimer <= 0) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * 10;
+      p.target.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+      p.waiting = false;
+      if (walkAction) walkAction.weight = 1;
+      if (idleAction) idleAction.weight = 0;
+    }
+    return;
+  }
+
+  const dx = p.target.x - model.position.x;
+  const dz = p.target.z - model.position.z;
+  const dist = Math.sqrt(dx*dx + dz*dz);
+
+  if (dist < 0.5) {
+    p.waiting = true;
+    p.waitTimer = 2 + Math.random() * 4;
+    if (walkAction) walkAction.weight = 0;
+    if (idleAction) idleAction.weight = 1;
+    return;
+  }
+
+  const nx = dx/dist, nz = dz/dist;
+  model.position.x += nx * p.speed * dt;
+  model.position.z += nz * p.speed * dt;
+  model.rotation.y = Math.atan2(nx, nz);
+
+  if (mapObject) {
+    p.footRay.set(new THREE.Vector3(model.position.x, model.position.y + 5, model.position.z), _yoojFootDir);
+    const hits = p.footRay.intersectObject(mapObject, true);
+    const gh = hits.filter(h => h.point.y <= 1.5).sort((a,b) => b.point.y - a.point.y)[0];
+    if (gh) model.position.y = gh.point.y;
+  }
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+}); // DOMContentLoaded
+</script>
+
+<!-- ══ 게임 로직 (WebSocket / NPC / 폼) ══ -->
+<script>
+// ── 이름표 스프라이트 생성 ──
+function makeNameSprite(name, bgColor = '#555') {
+  const canvas = document.createElement('canvas');
+  // 텍스트 너비 측정 후 딱 맞는 캔버스 생성
+  const tmpC = document.createElement('canvas');
+  const tmpX = tmpC.getContext('2d');
+  tmpX.font = 'bold 28px Pretendard, "Segoe UI", sans-serif';
+  const tw = tmpX.measureText(name).width;
+  const pw = 28, ph = 14; // 좌우/상하 padding
+  canvas.width  = Math.ceil(tw + pw * 2);
+  canvas.height = 52;
+  const ctx = canvas.getContext('2d');
+  const r = canvas.height / 2; // 완전 pill
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, canvas.width, canvas.height, r);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 28px Pretendard, "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false
+  }));
+  // 월드 크기: 높이 0.32 고정, 너비 비율 유지
+  const aspect = canvas.width / canvas.height;
+  sprite.scale.set(0.32 * aspect, 0.32, 1);
+  return sprite;
+}
+
+function attachNameTag(name) {
+  // charRoot가 아직 안 만들어졌을 수 있으니 poll
+  const tryAttach = () => {
+    const root = window._charRoot;
+    if (!root) { setTimeout(tryAttach, 300); return; }
+    const sprite = makeNameSprite(name);
+    sprite.position.set(0, 2.2, 0);
+    root.add(sprite);
+  };
+  tryAttach();
+}
+
+// ── 토스트 알림 ──
+function showToast(msg, duration = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', duration);
+}
+
+// ── 모달 닫기 ──
+function closeModals() {
+  ['applyModal','musicModal'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+}
+
+// ── 참가 신청 제출 ──
+async function submitApply() {
+  const name    = document.getElementById('applyName').value.trim();
+  const count   = document.getElementById('applyCount').value.trim();
+  const date    = document.getElementById('applyDate').value;
+  const time    = document.getElementById('applyTime').value;
+  const message = document.getElementById('applyMsg').value.trim();
+  if (!name) return alert('방문자 명을 입력해주세요!');
+  if (!count) return alert('인원을 입력해주세요!');
+
+  const res = await fetch('/api/apply', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, count, date, time, message })
+  });
+  if (res.ok) {
+    closeModals();
+    showToast('✅ 방문 신청이 완료됐습니다!');
+    ['applyName','applyCount','applyDate','applyTime','applyMsg'].forEach(id => document.getElementById(id).value = '');
+  }
+}
+
+// ── 음악 신청 제출 ──
+async function submitMusic() {
+  const name    = document.getElementById('musicName').value.trim();
+  const song    = document.getElementById('musicSong').value.trim();
+  const artist  = document.getElementById('musicArtist').value.trim();
+  const message = document.getElementById('musicMsg').value.trim();
+  if (!name || !song) return alert('이름과 곡명을 입력해주세요!');
+
+  const res = await fetch('/api/music', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, song, artist, message })
+  });
+  if (res.ok) {
+    closeModals();
+    showToast(`🎵 "${song}" 신청 완료!`);
+    ['musicName','musicSong','musicArtist','musicMsg'].forEach(id => document.getElementById(id).value = '');
+  }
+}
+
+// ── WebSocket 멀티플레이어 ──
+let ws, myId, myName;
+const remoteCats = {}; // id → { group }
+
+function joinGame() {
+  const nameInput = document.getElementById('playerName').value.trim();
+  if (!nameInput) return;
+  myName = nameInput;
+  document.getElementById('nameModal').style.display = 'none';
+
+  // 이름 입력 필드에 자동 채우기
+  ['applyName','musicName'].forEach(id => {
+    document.getElementById(id).value = myName;
+  });
+
+  // 내 캐릭터 머리 위 이름표
+  attachNameTag(myName);
+
+  // WebSocket 연결
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'join', name: myName }));
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'welcome') {
+      myId = msg.id;
+      // 기존 플레이어 렌더링
+      Object.entries(msg.players).forEach(([id, p]) => spawnRemoteCat(id, p.name));
+      updatePlayerCount();
+    }
+    else if (msg.type === 'player_joined') {
+      spawnRemoteCat(msg.id, msg.name);
+      updatePlayerCount();
+    }
+    else if (msg.type === 'player_moved') {
+      moveRemoteCat(msg);
+    }
+    else if (msg.type === 'player_left') {
+      removeRemoteCat(msg.id);
+      updatePlayerCount();
+    }
+    else if (msg.type === 'notification') {
+      showToast(msg.text);
+    }
+  };
+
+  ws.onclose = () => showToast('서버 연결이 끊겼습니다', 5000);
+}
+
+// 위치 전송 (10Hz)
+setInterval(() => {
+  if (!ws || ws.readyState !== 1 || !myId) return;
+  // charRoot는 Three.js module 내부이므로 전역 노출
+  if (window._charRoot) {
+    const c = window._charRoot;
+    ws.send(JSON.stringify({
+      type: 'move',
+      x: c.position.x, y: c.position.y, z: c.position.z,
+      ry: c.rotation.y,
+      anim: window._isMoving ? 'walk' : 'idle'
+    }));
+  }
+}, 100);
+
+// ── 다른 플레이어 고양이 생성 ──
+function spawnRemoteCat(id, name) {
+  if (remoteCats[id]) return;
+  // 간단한 로우폴리 고양이 대체 (GLB 로딩 생략)
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35, 7, 5),
+    new THREE.MeshToonMaterial({ color: 0xff8844 })
+  );
+  body.scale.set(1, 0.75, 1.2); body.position.y = 0.35; g.add(body);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 7, 5),
+    new THREE.MeshToonMaterial({ color: 0xff8844 })
+  );
+  head.position.set(0, 0.68, 0.28); g.add(head);
+
+  // 귀
+  [-1,1].forEach(s => {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08,0.14,4),
+      new THREE.MeshToonMaterial({ color: 0xff8844 }));
+    ear.position.set(s*0.14, 0.9, 0.22); ear.rotation.z = s*0.3; g.add(ear);
+  });
+
+  // 이름표
+  const canvas = document.createElement('canvas');
+  canvas.width = 200; canvas.height = 60;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.roundRect(10,10,180,40,10); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center'; ctx.fillText(name, 100, 37);
+  const tag = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(canvas), transparent: true
+  }));
+  tag.scale.set(2.2, 0.55, 1); tag.position.y = 2.2; g.add(tag);
+
+  g.position.set(0, window._groundLevel || 0, 5);
+
+  // scene에 추가 (전역 노출된 scene 사용)
+  if (window._scene) window._scene.add(g);
+  remoteCats[id] = { group: g };
+  showToast(`🐱 ${name} 입장!`);
+}
+
+function moveRemoteCat(msg) {
+  const r = remoteCats[msg.id];
+  if (!r) return;
+  const g = r.group;
+  g.position.set(msg.x, msg.y, msg.z);
+  g.rotation.y = msg.ry;
+}
+
+function removeRemoteCat(id) {
+  const r = remoteCats[id];
+  if (!r) return;
+  if (window._scene) window._scene.remove(r.group);
+  delete remoteCats[id];
+}
+
+function updatePlayerCount() {
+  const n = Object.keys(remoteCats).length + 1;
+  document.getElementById('playerCount').textContent = `🐱 ${n}명`;
+}
+
+// ── 동물 울음소리 맵 ──
+const ANIMAL_SOUNDS = {
+  'Wolf':       '아우우~🐺', 'White Horse': '히히힝~🐴', 'Horse': '히히힝~🐴',
+  'Stag':       '끼익~🦌',   'Deer':        '끼익~🦌',
+  'Shiba Inu':  '멍멍!🐕',   'Husky': '왈왈!🐕', 'Dog': '멍!🐶',
+  'Corgi':      '왕왕!🐕',   'Beagle': '멍멍~🐕',
+  'Fox':        '꺄악~🦊',   'Donkey': '으히히~🫏',
+  'Cow':        '음매~🐄',   'Bull': '음매!🐂', 'Bizon': '우우~🦬',
+  'Alpaca':     '음메~🦙',   'Sheep': '음메에~🐑',
+  'Shark':      '...(침묵)🦈', 'Rabbit': '찍찍~🐰',
+  'Penguin':    '크왁크왁~🐧', 'Lizard': '쉬익~🦎',
+  'Giraffe':    '(아무말없음)🦒', 'Frog': '개굴개굴~🐸',
+  'Duck':       '꽥꽥~🦆',   'Chicken': '꼬꼬댁~🐔',
+  'Chick':      '삐약삐약~🐣', 'Cat': '야옹~🐱',
+  'Bird':       '짹짹~🐦',   'Bear': '으르렁~🐻',
+};
+
+// 동물 이름 추출 (파일명에서)
+function getAnimalName(filename) {
+  return filename.replace(/\.glb$/i, '').replace(/-[a-zA-Z0-9]+$/, '').trim();
+}
+
+// 말풍선 스프라이트 생성
+function createSpeechBubble(text, model) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 320; canvas.height = 90;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.roundRect(8, 8, 304, 60, 14); ctx.fill();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2;
+  ctx.roundRect(8, 8, 304, 60, 14); ctx.stroke();
+  // 꼬리
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath(); ctx.moveTo(140,68); ctx.lineTo(160,85); ctx.lineTo(180,68); ctx.fill();
+  ctx.fillStyle = '#333'; ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'center'; ctx.fillText(text, 160, 44);
+
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false
+  }));
+  sprite.scale.set(3.0, 0.9, 1);
+
+  // 모델 높이 계산
+  const box = new THREE.Box3().setFromObject(model);
+  const h = box.max.y - box.min.y;
+  sprite.position.set(0, h + 0.5, 0);
+  model.add(sprite);
+
+  setTimeout(() => { model.remove(sprite); sprite.material.dispose(); }, 2500);
+}
+
+// ── NPC / 동물 상호작용 (E키) ──
+let nearNPC = null;
+let nearAnimal = null;
+
+function checkProximity() {
+  if (!window._charRoot) return;
+  const pos = window._charRoot.position;
+
+  // NPC 체크
+  let closestNPC = null, minNPC = 5;
+  (window._npcs || []).forEach(npc => {
+    const dx = pos.x - npc.x, dz = pos.z - npc.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if (dist < minNPC) { minNPC = dist; closestNPC = npc; }
+  });
+
+  // Punkman 체크 (음악 신청)
+  if (window._punkman) {
+    const d = pos.distanceTo(window._punkman.model.position);
+    if (d < 4) closestNPC = { label: '음악 신청' };
+  }
+  // 이유진 체크 (참가 신청)
+  if (window._yoojin) {
+    const d = pos.distanceTo(window._yoojin.model.position);
+    if (d < 4) closestNPC = { label: '참가 신청' };
+  }
+
+  // 동물 체크
+  let closestAnimal = null, minAnimal = 3.5;
+  (window._wanderers || []).forEach(w => {
+    const d = pos.distanceTo(w.model.position);
+    if (d < minAnimal) { minAnimal = d; closestAnimal = w; }
+  });
+
+  nearNPC    = closestNPC;
+  nearAnimal = closestAnimal;
+  const hasTarget = closestNPC || closestAnimal;
+
+  if (isMobile) {
+    const btn = document.getElementById('touchInteractBtn');
+    btn.style.display = hasTarget && !window._inDialog ? 'flex' : 'none';
+    btn.textContent = closestAnimal ? '말\n걸기' : '상호\n작용';
+    document.getElementById('npcHint').style.display = 'none';
+  } else {
+    document.getElementById('npcHint').style.display = hasTarget ? 'flex' : 'none';
+    document.getElementById('npcHint').textContent = closestAnimal ? 'E — 말 걸기' : 'E — 상호작용';
+  }
+}
+setInterval(checkProximity, 150);
+
+// ── 동물의숲 대화 시스템 ──
+window._inDialog = false;
+let _dialogTarget = null; // 대화 중인 동물/NPC
+
+function openAnimalDialog(w) {
+  const name = getAnimalName(w.file || '');
+  const sound = ANIMAL_SOUNDS[name] || '...';
+
+  // 동물 멈추고 플레이어 쳐다보기
+  w._savedWaiting = w.waiting;
+  w.waiting = true;
+  w._lookAtPlayer = true;
+  _dialogTarget = w;
+  window._inDialog = true;
+
+  document.getElementById('acName').textContent = name;
+  document.getElementById('acText').textContent = sound;
+  document.getElementById('acOptions').innerHTML = '';
+  document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
+  document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
+  document.getElementById('acDialog').style.display = 'block';
+  document.getElementById('npcHint').style.display = 'none';
+  document.getElementById('touchInteractBtn').style.display = 'none';
+  if (!isMobile) document.exitPointerLock();
+}
+
+function openYoojinDialog() {
+  const p = window._yoojin;
+  if (p) { p._lookAtPlayer = true; p._savedWaiting = p.waiting; p.waiting = true; }
+  _dialogTarget = { type: 'yoojin' };
+  window._inDialog = true;
+
+  document.getElementById('acName').textContent = '이유진';
+  document.getElementById('acName').style.background = '#E8855A';
+  document.getElementById('acText').textContent = '어, 왔어? 방문 신청할 거야?';
+  document.getElementById('acClose').style.display = 'none';
+  document.getElementById('acCloseBtn').style.display = 'none';
+
+  const opts = document.getElementById('acOptions');
+  opts.innerHTML = '';
+
+  const BS = `padding:11px 24px;border:none;border-radius:var(--r);font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s;`;
+  const btn1 = document.createElement('button');
+  btn1.textContent = '1. 참가 신청하기';
+  btn1.style.cssText = BS + 'background:var(--btn-apply);color:#fff;';
+  btn1.onclick = () => { closeDialog(); document.getElementById('applyModal').style.display = 'flex'; };
+
+  const btn2 = document.createElement('button');
+  btn2.textContent = '2. 그냥 갈게';
+  btn2.style.cssText = BS + 'background:var(--btn-cancel);color:var(--clr-text);';
+  btn2.onclick = () => closeDialog();
+
+  opts.append(btn1, btn2);
+  document.getElementById('acDialog').style.display = 'block';
+  document.getElementById('npcHint').style.display = 'none';
+  document.getElementById('touchInteractBtn').style.display = 'none';
+  if (!isMobile) document.exitPointerLock();
+}
+
+function openPunkDialog() {
+  const p = window._punkman;
+  if (p) { p._lookAtPlayer = true; p._savedWaiting = p.waiting; p.waiting = true; }
+  _dialogTarget = { type: 'punk' };
+  window._inDialog = true;
+
+  document.getElementById('acName').textContent = '최관철';
+  document.getElementById('acName').style.background = '#7B9FE0';
+  document.getElementById('acText').textContent = '뭐야, 용건이 뭔데?';
+  document.getElementById('acClose').style.display = 'none';
+  document.getElementById('acCloseBtn').style.display = 'none';
+
+  const opts = document.getElementById('acOptions');
+  opts.innerHTML = '';
+
+  const BS = `padding:11px 24px;border:none;border-radius:var(--r);font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s;`;
+  const btn1 = document.createElement('button');
+  btn1.textContent = '1. 음악 신청하기';
+  btn1.style.cssText = BS + 'background:var(--btn-music);color:#fff;';
+  btn1.onclick = () => { closeDialog(); document.getElementById('musicModal').style.display = 'flex'; };
+
+  const btn2 = document.createElement('button');
+  btn2.textContent = '2. 말 끝내기';
+  btn2.style.cssText = BS + 'background:var(--btn-cancel);color:var(--clr-text);';
+  btn2.onclick = () => closeDialog();
+
+  opts.append(btn1, btn2);
+  document.getElementById('acDialog').style.display = 'block';
+  document.getElementById('npcHint').style.display = 'none';
+  document.getElementById('touchInteractBtn').style.display = 'none';
+  if (!isMobile) document.exitPointerLock();
+}
+
+function closeDialog() {
+  if (_dialogTarget) {
+    if (_dialogTarget._lookAtPlayer !== undefined) {
+      // 동물
+      _dialogTarget._lookAtPlayer = false;
+      _dialogTarget.waiting = _dialogTarget._savedWaiting ?? false;
+    }
+    const pk = window._punkman;
+    if (_dialogTarget.type === 'punk' && pk) {
+      pk._lookAtPlayer = false;
+      pk.waiting = pk._savedWaiting ?? false;
+    }
+    const yj = window._yoojin;
+    if (_dialogTarget.type === 'yoojin' && yj) {
+      yj._lookAtPlayer = false;
+      yj.waiting = yj._savedWaiting ?? false;
+    }
+    _dialogTarget = null;
+  }
+  window._inDialog = false;
+  document.getElementById('acDialog').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => {
+  // 대화 중 닫기
+  if (window._inDialog && (e.code === 'KeyE' || e.code === 'Space')) {
+    if (_dialogTarget && _dialogTarget.type !== 'punk') closeDialog();
+    return;
+  }
+  if (e.code !== 'KeyE') return;
+
+  if (nearAnimal) { openAnimalDialog(nearAnimal); return; }
+  if (nearNPC?.label === '참가 신청') {
+    openYoojinDialog();
+  } else if (nearNPC?.label === '음악 신청') {
+    openPunkDialog();
+  }
+});
+
+// 자동 입장 (랜덤 닉네임)
+const adjectives = ['귀여운','빠른','졸린','배고픈','깜찍한','용감한','작은','큰'];
+const nouns      = ['고양이','냥냥이','나비','야옹','츄르','꼬리','발바닥'];
+const autoName   = adjectives[Math.floor(Math.random()*adjectives.length)]
+                 + nouns[Math.floor(Math.random()*nouns.length)];
+document.getElementById('playerName').value = autoName;
+window.addEventListener('load', () => joinGame());
+</script>
+
+<!-- ══ 배경음악 ══ -->
+<!-- 🎵 bgm.mp3 파일을 이 폴더에 넣으면 자동 재생됩니다 -->
+<audio id="bgm" loop preload="auto"
+  src="bgm.mp3">
+</audio>
+
+<!-- 음악 토글 버튼 -->
+<button id="musicBtn" onclick="toggleBGM()" style="
+  position:fixed; bottom:22px; right:22px;
+  background:rgba(0,0,0,0.45); color:#fff;
+  border:none; border-radius:50%; width:44px; height:44px;
+  font-size:20px; cursor:pointer; z-index:100;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(6px); transition:background 0.2s;">🎵</button>
+
+<script>
+const bgm = document.getElementById('bgm');
+bgm.volume = 0.35;
+let bgmPlaying = false;
+
+function toggleBGM() {
+  if (bgmPlaying) {
+    bgm.pause();
+    window._bgmReady = false;
+    document.getElementById('musicBtn').textContent = '🔇';
+  } else {
+    bgm.play();
+    window._bgmReady = true;
+    document.getElementById('musicBtn').textContent = '🎵';
+  }
+  bgmPlaying = !bgmPlaying;
+}
+
+// 첫 클릭/키 입력 시 자동 재생 (브라우저 정책)
+function startBGM() {
+  if (!bgmPlaying) {
+    bgm.play().then(() => {
+      bgmPlaying = true;
+      window._bgmReady = true;
+      document.getElementById('musicBtn').textContent = '🎵';
+    }).catch(() => {});
+  }
+  document.removeEventListener('click', startBGM);
+  document.removeEventListener('keydown', startBGM);
+}
+document.addEventListener('click', startBGM);
+document.addEventListener('keydown', startBGM);
+document.addEventListener('touchstart', startBGM, { once: true });
+</script>
+</body>
+</html>
