@@ -2108,8 +2108,10 @@ function makeNameSprite(name, bgColor = '#555') {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false
+    map: tex, transparent: true, depthTest: false
   }));
   // 월드 크기: 높이 0.32 고정, 너비 비율 유지
   const aspect = canvas.width / canvas.height;
@@ -2354,8 +2356,10 @@ function createSpeechBubble(text, model) {
   ctx.fillStyle = '#333'; ctx.font = 'bold 26px sans-serif';
   ctx.textAlign = 'center'; ctx.fillText(text, 160, 44);
 
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false
+    map: tex, transparent: true, depthTest: false
   }));
   sprite.scale.set(3.0, 0.9, 1);
 
