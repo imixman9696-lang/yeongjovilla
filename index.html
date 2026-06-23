@@ -2242,7 +2242,8 @@ function joinGame() {
   const nameInput = document.getElementById('playerName').value.trim();
   if (!nameInput) return;
   myName = nameInput;
-  document.getElementById('nameModal').style.display = 'none';
+  const nm = document.getElementById('nameModal');
+  if (nm) nm.style.display = 'none';
 
   // 이름 입력 필드에 자동 채우기
   ['applyName','musicName'].forEach(id => {
