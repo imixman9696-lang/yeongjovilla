@@ -1052,6 +1052,14 @@ mapLoader.load(
       sign.rotation.y = Math.PI / 4;
       sign.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
       _origSceneAdd(sign);
+
+      // 안내판 배지
+      const signTag = makeNameSprite('안내판', '#6BAE8C');
+      signTag.position.set(0, 2.2, 0);
+      sign.add(signTag);
+
+      // 표지판 위치를 전역으로 등록 (근접 감지용)
+      window._signBoard = { x: 7, z: -1 };
     }, undefined, (e) => console.warn('표지판 로드 실패:', e));
 
 
@@ -1468,6 +1476,7 @@ if (isMobile) {
   document.getElementById('touchInteractBtn').addEventListener('touchstart', e => {
     e.preventDefault();
     if (nearAnimal) { openAnimalDialog(nearAnimal); return; }
+    if (nearNPC?.label === '안내판') { openSignDialog(); return; }
     if (nearNPC?.label === '참가 신청') openYoojinDialog();
     else if (nearNPC?.label === '음악 신청') openPunkDialog();
   }, { passive: false });
@@ -2081,6 +2090,7 @@ if (isMobile) {
     if (e.target.closest('#acDialog, #applyModal, #musicModal, #touchRunBtn')) return;
 
     if (window._nearAnimal) { openAnimalDialog(window._nearAnimal); return; }
+    if (window._nearNPC?.label === '안내판') { openSignDialog(); return; }
     if (window._nearNPC?.label === '참가 신청') { openYoojinDialog(); return; }
     if (window._nearNPC?.label === '음악 신청') { openPunkDialog(); return; }
   }, { passive: true });
@@ -2398,6 +2408,11 @@ function checkProximity() {
     const d = pos.distanceTo(window._yoojin.model.position);
     if (d < 4) closestNPC = { label: '참가 신청' };
   }
+  // 표지판 체크 (안내판)
+  if (window._signBoard) {
+    const dx = pos.x - window._signBoard.x, dz = pos.z - window._signBoard.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 4) closestNPC = { label: '안내판' };
+  }
 
   // 동물 체크
   let closestAnimal = null, minAnimal = 3.5;
@@ -2516,6 +2531,24 @@ function openPunkDialog() {
   if (!isMobile) document.exitPointerLock();
 }
 
+function openSignDialog() {
+  _dialogTarget = { type: 'sign' };
+  window._inDialog = true;
+
+  document.getElementById('acName').textContent = '안내판';
+  document.getElementById('acName').style.background = '#6BAE8C';
+  document.getElementById('acText').textContent = '영조빌라에 오신 것을 환영합니다. 🏠';
+  document.getElementById('acClose').style.display = isMobile ? 'none' : 'block';
+  document.getElementById('acCloseBtn').style.display = isMobile ? 'block' : 'none';
+
+  const opts = document.getElementById('acOptions');
+  opts.innerHTML = '';
+  document.getElementById('acDialog').style.display = 'block';
+  document.getElementById('npcHint').style.display = 'none';
+  document.getElementById('touchInteractBtn').style.display = 'none';
+  if (!isMobile) document.exitPointerLock();
+}
+
 function closeDialog() {
   if (_dialogTarget) {
     if (_dialogTarget._lookAtPlayer !== undefined) {
@@ -2548,11 +2581,9 @@ document.addEventListener('keydown', e => {
   if (e.code !== 'KeyE') return;
 
   if (nearAnimal) { openAnimalDialog(nearAnimal); return; }
-  if (nearNPC?.label === '참가 신청') {
-    openYoojinDialog();
-  } else if (nearNPC?.label === '음악 신청') {
-    openPunkDialog();
-  }
+  if (nearNPC?.label === '안내판') { openSignDialog(); return; }
+  if (nearNPC?.label === '참가 신청') { openYoojinDialog(); return; }
+  if (nearNPC?.label === '음악 신청') { openPunkDialog(); }
 });
 
 // 자동 입장 (랜덤 닉네임)
