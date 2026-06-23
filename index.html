@@ -223,6 +223,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { VRMLoaderPlugin, VRMUtils } from 'https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.min.js';
 
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
 window.addEventListener('DOMContentLoaded', () => {
 
 // ═══════════════════════════════════════
@@ -1358,7 +1360,6 @@ addEventListener('keydown', e => {
 addEventListener('keyup',   e => { keys[e.code] = false; });
 
 let camYaw = 0, camPitch = 0.35, isLocked = false;
-const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
 if (!isMobile) {
   renderer.domElement.addEventListener('click', () => {
