@@ -2313,7 +2313,13 @@ function spawnRemoteCat(id, name) {
   new window.GLTFLoader().load('/oiiaioooooiai_cat.glb', (gltf) => {
     if (!remoteCats[id]) return; // 이미 퇴장한 경우
     const model = gltf.scene;
-    model.scale.setScalar(0.33);
+    // 로컬 고양이와 동일한 크기 보정 (목표 키: 1.7)
+    const box = new window.THREE.Box3().setFromObject(model);
+    const sz = box.getSize(new window.THREE.Vector3());
+    const sc = 1.7 / Math.max(sz.x, sz.y, sz.z);
+    model.scale.setScalar(sc);
+    const box2 = new window.THREE.Box3().setFromObject(model);
+    model.position.y = -box2.min.y;
     model.traverse(c => { if (c.isMesh) { c.castShadow = true; } });
 
     // 이름표 (makeNameSprite 스타일)
