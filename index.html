@@ -228,6 +228,10 @@ import { VRMLoaderPlugin, VRMUtils } from 'https://cdn.jsdelivr.net/npm/@pixiv/t
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
 window.isMobile = isMobile;
 
+// 외부 스크립트(spawnRemoteCat 등)에서 GLTFLoader를 즉시 사용할 수 있도록 모듈 로드 시점에 노출
+window.THREE = THREE;
+window.GLTFLoader = GLTFLoader;
+
 window.addEventListener('DOMContentLoaded', () => {
 
 // ═══════════════════════════════════════
