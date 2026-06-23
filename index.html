@@ -224,6 +224,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { VRMLoaderPlugin, VRMUtils } from 'https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.min.js';
 
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
+window.isMobile = isMobile;
 
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -2049,6 +2050,7 @@ addEventListener('resize', () => {
 
 <!-- ══ 게임 로직 (WebSocket / NPC / 폼) ══ -->
 <script>
+const isMobile = window.isMobile;
 // ── 이름표 스프라이트 생성 ──
 function makeNameSprite(name, bgColor = '#555') {
   const canvas = document.createElement('canvas');
