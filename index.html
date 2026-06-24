@@ -1736,9 +1736,17 @@ window._wanderers = []; // 로드된 동물들
 const wanderers = window._wanderers;
 const _wFootDir = new THREE.Vector3(0, -1, 0);
 
+// 결정론적 시드 난수 (모든 클라이언트 동일한 NPC 위치/패턴)
+let _rngSeed = 42;
+function seededRand() {
+  _rngSeed = (_rngSeed * 1664525 + 1013904223) & 0xffffffff;
+  return ((_rngSeed >>> 0) / 0xffffffff);
+}
+function resetRng() { _rngSeed = 42; }
+
 function pickWanderTarget(cx = 0, cz = 0, minR = 10, maxR = 45) {
-  const angle = Math.random() * Math.PI * 2;
-  const r = minR + Math.random() * (maxR - minR);
+  const angle = seededRand() * Math.PI * 2;
+  const r = minR + seededRand() * (maxR - minR);
   return new THREE.Vector3(cx + Math.cos(angle) * r, 0, cz + Math.sin(angle) * r);
 }
 
@@ -1747,8 +1755,8 @@ const _spawnDir = new THREE.Vector3(0, -1, 0);
 
 function findGroundPos(mapObj, minR = 5, maxR = 30, maxY = 1.5) {
   for (let i = 0; i < 40; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const r = minR + Math.random() * (maxR - minR);
+    const angle = seededRand() * Math.PI * 2;
+    const r = minR + seededRand() * (maxR - minR);
     const x = Math.cos(angle) * r;
     const z = Math.sin(angle) * r;
     _spawnRay.set(new THREE.Vector3(x, 999, z), _spawnDir);
@@ -1792,10 +1800,10 @@ function spawnAnimalsOnMap(mapObj) {
       wanderers.push({
         model, mixer, walkAction, idleAction,
         mapObj, file,
-        speed: speed * (0.8 + Math.random() * 0.4),
+        speed: speed * (0.8 + seededRand() * 0.4),
         target: pos.clone(),
         waiting: true,
-        waitTimer: Math.random() * 3,
+        waitTimer: seededRand() * 3,
         footRay: new THREE.Raycaster(),
       });
       console.log(`🐾 ${file} 스폰 완료 @ ${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}`);
@@ -1832,7 +1840,7 @@ function updateWanderers(dt) {
 
     if (dist < 1.0) {
       w.waiting = true;
-      w.waitTimer = 3 + Math.random() * 5;
+      w.waitTimer = 3 + seededRand() * 5;
       if (w.walkAction) w.walkAction.weight = 0;
       if (w.idleAction) w.idleAction.weight = 1;
       return;
@@ -2347,8 +2355,9 @@ function spawnRemoteCat(id, name) {
 function moveRemoteCat(msg) {
   const r = remoteCats[msg.id];
   if (!r || !r.group) return;
-  r.group.position.set(msg.x, msg.y, msg.z);
-  r.group.rotation.y = msg.ry;
+  // 목표 위치 저장 (lerp 보간용)
+  if (!r.target) r.target = { x: msg.x, y: msg.y, z: msg.z, ry: msg.ry };
+  else { r.target.x = msg.x; r.target.y = msg.y; r.target.z = msg.z; r.target.ry = msg.ry; }
 
   // 걷기/서기 애니메이션 전환
   const newAnim = msg.anim || 'idle';
@@ -2360,9 +2369,22 @@ function moveRemoteCat(msg) {
   }
 }
 
-// 원격 고양이 애니메이션 업데이트 (animate 루프에서 호출)
+// 원격 고양이 애니메이션 + 보간 업데이트 (animate 루프에서 호출)
 function updateRemoteCats(dt) {
-  Object.values(remoteCats).forEach(r => { if (r?.mixer) r.mixer.update(dt); });
+  const alpha = Math.min(1, dt * 18); // 부드러운 보간 속도
+  Object.values(remoteCats).forEach(r => {
+    if (r?.mixer) r.mixer.update(dt);
+    if (r?.group && r?.target) {
+      r.group.position.x += (r.target.x - r.group.position.x) * alpha;
+      r.group.position.y += (r.target.y - r.group.position.y) * alpha;
+      r.group.position.z += (r.target.z - r.group.position.z) * alpha;
+      // 회전은 각도 보간 (최단 경로)
+      let dRy = r.target.ry - r.group.rotation.y;
+      if (dRy > Math.PI) dRy -= Math.PI * 2;
+      if (dRy < -Math.PI) dRy += Math.PI * 2;
+      r.group.rotation.y += dRy * alpha;
+    }
+  });
 }
 
 function removeRemoteCat(id) {
